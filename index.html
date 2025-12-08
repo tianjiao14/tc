@@ -282,8 +282,6 @@ async function doLogin() {
         btn.innerText = "登录系统";
     }
 }
-
-// 登录成功处理 (已修复)
 function loginSuccess(user) {
     CURRENT_USER = user;
     document.getElementById('login-screen').style.display = 'none';
@@ -297,7 +295,6 @@ function loginSuccess(user) {
     if(titleEl) titleEl.innerText = `📊 ${user.name} | 体测系统`;
 }
 
-// 监听回车
 document.addEventListener('keyup', function(e) {
     if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') {
         doLogin();
@@ -712,7 +709,7 @@ function importExcel(e) {
     r.readAsArrayBuffer(f);
 }
 
-// 1️⃣ 导入基本信息（建立名册）- 修复版
+// 1️⃣ 导入基本信息
 function importBasicInfo(e) {
     const f = e.target.files[0];
     const r = new FileReader();
@@ -746,20 +743,16 @@ function importBasicInfo(e) {
             return;
         }
 
-        // 🛠️ 修复核心：更强壮的生日提取逻辑
+
         const getDobFromId = (val) => {
             if(!val) return '';
-            // 强制转为字符串并去除空格，防止Excel读取为数字类型导致报错
             const id = String(val).trim();
-            
-            // 18位身份证：提取第7-14位 (例如 510...19900101... -> 1990/01/01)
             if(id.length === 18) {
                 const y = id.substring(6, 10);
                 const m = id.substring(10, 12);
                 const d = id.substring(12, 14);
                 return `${y}/${m}/${d}`;
             }
-            // 15位身份证：提取第7-12位，前补19
             if(id.length === 15) {
                 const y = '19' + id.substring(6, 8);
                 const m = id.substring(8, 10);
@@ -848,16 +841,14 @@ function exportSplitClassExcel() {
         return `${m}'${sStr}`;
     };
 
-    // 表头定义（完全对应截图）
     const header = ['班级', '姓名', '性别', '身高', '体重', '肺活量', '50米跑', '坐位体前屈', '一分钟仰卧起坐', '立定跳远', '引体向上', '1000米跑', '800米跑'];
 
-    // 3. 排序班级并生成 Sheet
     const sortedClasses = Object.keys(classMap).sort((a,b) => getClassRank(a) - getClassRank(b));
     
     sortedClasses.forEach(clsName => {
         const data = classMap[clsName];
         
-        // 映射数据列
+
         const sheetData = data.map(d => [
             d.gc,              // 班级
             d.name,            // 姓名
@@ -874,7 +865,7 @@ function exportSplitClassExcel() {
             fmtRun(d.r800)     // 800米
         ]);
         
-        // 添加表头到第一行
+       
         sheetData.unshift(header);
         
         const ws = XLSX.utils.aoa_to_sheet(sheetData);
@@ -908,7 +899,7 @@ function exportAllData() {
     
     const wb = XLSX.utils.book_new();
     
-    // 1. 定义民族代码表（严格对应国家标准代码）
+    // 1. 定义民族代码表
     const NATION_MAP = {
         "汉族": "01", "蒙古族": "02", "回族": "03", "藏族": "04", "维吾尔族": "05", 
         "苗族": "06", "彝族": "07", "壮族": "08", "布依族": "09", "朝鲜族": "10", 
@@ -928,10 +919,8 @@ function exportAllData() {
     const fmtNationCode = (val) => {
         if(!val) return '';
         const s = String(val).trim();
-        // 如果已经是数字代码（如 '01' 或 '1'），补全两位后返回
         if(/^\d+$/.test(s)) return s.padStart(2, '0');
-        // 如果是文字，查表返回
-        return NATION_MAP[s] || s; // 查不到则返回原值，防止数据丢失
+        return NATION_MAP[s] || s; 
     };
 
     const fmtGenderCode = (val) => {
@@ -951,7 +940,7 @@ function exportAllData() {
         return `${m}′${sStr}″`;
     };
 
-    // 3. 定义表头（不含总分和等级）
+    // 3. 定义表头
     const header = [
         "年级编号", "班级编号", "班级名称", "学籍号", "民族代码", 
         "姓名", "性别", "出生日期", "家庭住址", 
@@ -965,7 +954,7 @@ function exportAllData() {
         d.classId || '',
         getStandardClassName(d.gc) || d.gc, 
         d.stuCode || '',
-        fmtNationCode(d.nation), // 这里应用了民族代码转换
+        fmtNationCode(d.nation), 
         d.name || '',
         fmtGenderCode(d.ge),
         d.dob || '',
@@ -1063,7 +1052,7 @@ function genReport() {
     renderChart('chart-overall', 'bar', '各年级优良率 (%)', overallChartData, {yTitle: '优良率 (%)', max: 100});
 
 
-    // --- 2. 各项目优良率 (Table) ---
+    // --- 2. 各项目优良率---
     let h2 = `<table class="report-table"><tr class="report-header-blue"><th>年级</th><th>肺活量(男)</th><th>肺活量(女)</th><th>50米(男)</th><th>50米(女)</th><th>立定跳远(男)</th><th>立定跳远(女)</th><th>坐位体前屈(男)</th><th>坐位体前屈(女)</th><th>1000米</th><th>800米</th><th>引体向上</th><th>仰卧起坐</th></tr>`;
     
     // ⬇️ 完整数据集定义 ⬇️
@@ -1107,7 +1096,7 @@ function genReport() {
     document.getElementById('report-items').innerHTML = h2;
     renderChart('chart-items', 'bar', '各项目优良率对比 (%)', itemChartData, {yTitle: '优良率 (%)', max: 100});
 
-    // --- 3. 班级详情分析 (Table) ---
+    // --- 3. 班级详情分析 ---
     let h3 = `<table class="report-table"><tr class="report-header-blue"><th>班级</th><th>总数</th><th>优良率</th><th>及格率</th><th>不及格</th></tr>`;
     const classChartData = { 
         labels: [], 
@@ -1133,14 +1122,14 @@ function genReport() {
     renderChart('chart-class', 'bar', '各班级优良率与不及格率 (%)', classChartData, {yTitle: '百分比 (%)', max: 100});
 }
 
-// 全局图表实例对象（用于销毁旧图表）
+
 let myCharts = {};
 
-// 渲染图表的通用函数
+
 function renderChart(canvasId, type, titleText, data, options = {}) {
     const ctx = document.getElementById(canvasId);
     
-    // 销毁旧图表实例
+  
     if (myCharts[canvasId]) {
         myCharts[canvasId].destroy();
     }
@@ -1177,7 +1166,7 @@ function renderChart(canvasId, type, titleText, data, options = {}) {
                         display: true,
                         text: '对象/班级'
                     },
-                    // 确保所有标签都显示
+                    
                     ticks: {
                         autoSkip: false
                     }
@@ -1203,7 +1192,7 @@ function renderChart(canvasId, type, titleText, data, options = {}) {
 }
 
 // ---------------------------
-// 导出统计报告功能 (已修复)
+// 导出统计报告功能
 // ---------------------------
 function exportAnalysisExcel() {
     if (!GLOBAL_DATA.length) { alert("无数据"); return; }
@@ -1211,7 +1200,7 @@ function exportAnalysisExcel() {
     const { stats, itemStats, classStats, existGrades } = getAnalysisData();
     const wb = XLSX.utils.book_new();
 
-    // 格式化工具函数 (与 genReport 保持一致)
+    // 格式化工具函数 
     const pct = (n,t) => t ? ((n/t)*100).toFixed(1)+'%' : '0%';
     const fmt = (n,t) => `${n} (${pct(n,t)})`;
 
@@ -1406,13 +1395,13 @@ function openOptimizeDialog() {
 function autoOptimize(targetRate) {
     if(!GLOBAL_DATA.length) return;
     
-    // 1. 年级优先级定义 (数字越小优先级越高)
+    // 1. 年级优先级定义
     const gradePriority = { '高三':0, '初三':1, '高二':2, '初二':3, '高一':4, '初一':5 };
     
     const getGradeScore = (d) => {
         const gc = d.gc || '';
         for(let g in gradePriority) if(gc.includes(g)) return gradePriority[g];
-        return 99; // 未知年级最后处理
+        return 99; 
     };
 
     // 2. 筛选全校范围内的所有“潜力股” (75 <= 分数 < 80)
@@ -1446,16 +1435,14 @@ function autoOptimize(targetRate) {
 
     // 5. 开始全局循环优化
     for(let item of candidates) {
-        // 每次修改前检查全校达标率
         if(calcGlobalRate() >= targetRate) {
-            break; // 全校达标，全局熔断
+            break; 
         }
 
-        const idx = item.index; // 原始数据中的索引
+        const idx = item.index; 
         const currentD = GLOBAL_DATA[idx];
         let isModified = false;
 
-        // 修改管道
         const modifyPipeline = [
             {
                 key: 'r50',
@@ -1519,7 +1506,7 @@ function autoOptimize(targetRate) {
             if(step.action()) {
                 isModified = true;
                 GLOBAL_DATA[idx] = calculateRowData(currentD);
-                // 个人达标即停止
+            
                 if(parseFloat(GLOBAL_DATA[idx].res.total) >= 80) {
                     break; 
                 }
@@ -1564,21 +1551,17 @@ function scrollToNextWarn() {
 // 交互与其他
 // ---------------------------
 
-// 修改点：新增删除当前班逻辑
 function deleteCurrentClass() {
     if (UNIQUE_CLASSES.length === 0) return;
     const curClass = UNIQUE_CLASSES[CUR_CLASS_IDX];
     
-    // 双重确认，防止手滑
     if (!confirm(`⚠️ 高危操作 warning ⚠️\n\n你确定要删除【${curClass}】的所有数据吗？\n\n删除后不可恢复！`)) return;
     
-    // 过滤掉当前班级的数据
     const oldLen = GLOBAL_DATA.length;
     GLOBAL_DATA = GLOBAL_DATA.filter(d => (d.gc || '未分类') !== curClass);
     const newLen = GLOBAL_DATA.length;
     const deletedCount = oldLen - newLen;
 
-    // 重置索引并保存
     updateUniqueClasses();
     CUR_CLASS_IDX = 0; 
     renderTable();
@@ -1610,11 +1593,8 @@ document.getElementById('tableBody').addEventListener('input', function(e) {
         if(['h','w','lung','r50','sit','jump','situp','pull','r1000','r800','ge','gc'].includes(field)) {
              GLOBAL_DATA[idx] = calculateRowData(GLOBAL_DATA[idx]);
              
-             // 核心优化：如果是性别(ge)或班级(gc)改变，必须重绘(因为涉及禁用框状态)
-             // 否则，只更新当前行的分数显示，不破坏焦点！
              if (field === 'ge' || field === 'gc') {
                  renderTable();
-                 // 尝试恢复焦点(简单尝试，针对性别修改)
                  const newTr = document.querySelector(`tr[data-idx="${idx}"]`);
                  if(newTr) {
                      const newInput = newTr.querySelector(`input[data-f="${field}"]`);
@@ -1629,7 +1609,6 @@ document.getElementById('tableBody').addEventListener('input', function(e) {
     }
 });
 
-// 新增：只更新单行显示的辅助函数（不会导致失焦）
 function updateRowDisplay(tr, d) {
     if(!tr || !d) return;
     const r = d.res;
@@ -1643,7 +1622,6 @@ function updateRowDisplay(tr, d) {
         return '不及格'; 
     };
 
-    // 辅助：安全更新单元格
     const setCell = (idx, text, className) => {
         if(tr.cells[idx]) {
             tr.cells[idx].innerText = text;
@@ -1729,7 +1707,7 @@ document.getElementById('subHeader').innerHTML = sh;
 
 loadData();
 
-// 新增：检查登录状态
+// 检查登录状态
 (function checkLoginStatus() {
     const session = sessionStorage.getItem(REMOTE_CONFIG.sessionKey);
     if (session) {
