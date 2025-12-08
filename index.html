@@ -41,7 +41,7 @@
 
         /* 列宽设置 */
         .col-id { width: 60px; min-width: 60px; } 
-        .col-class { width: 75px; min-width: 75px; } 
+        .col-class { width: 70px; min-width: 70px; } 
         .col-code { width: 130px; min-width: 130px; } 
         .col-name { width: 75px; min-width: 75px; }
         .col-addr { width: 150px; min-width: 150px; }
@@ -86,6 +86,7 @@
             .pagination { width: 100%; justify-content: space-between; margin-top: 5px; order: 10; }
         }
     </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
 <div id="login-screen" class="fixed inset-0 bg-gray-800 flex items-center justify-center z-[100]">
@@ -106,22 +107,25 @@
         <button id="loginBtn" onclick="doLogin()" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700 transition">登录系统</button>
         <p id="login-msg" class="text-red-500 text-xs mt-2 hidden">账号或密码错误</p>
     </div>
-</div>
+    
 
+</div>  <div id="app-content" class="hidden" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+    
     <div class="toolbar">
         <span class="app-title">📊 体测数据中心</span>
         
-        <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" onchange="importExcel(event)">
-        <button class="btn" onclick="document.getElementById('fileInput').click()">1️⃣ 导入成绩</button>
-        
         <input type="file" id="infoInput" accept=".xlsx,.xls" style="display:none" onchange="importBasicInfo(event)">
-        <button class="btn btn-blue" onclick="document.getElementById('infoInput').click()">2️⃣ 导入基本信息</button>
-
-        <button class="btn" onclick="addNewRow()">➕ 行</button>
-        <button class="btn btn-orange" onclick="runSmartCheck()">🔍 智能校验</button>
-        <button class="btn btn-warn-nav" id="btnWarnNav" onclick="scrollToNextWarn()">⚠️ 定位异常 (0)</button>
+        <button class="btn btn-blue" onclick="document.getElementById('infoInput').click()">1️⃣ 导入基本信息</button>
         
-        <button class="btn btn-green" onclick="exportAllData()">3️⃣ 导出全校上报表</button>
+        <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" onchange="importExcel(event)">
+        <button class="btn" onclick="document.getElementById('fileInput').click()">2️⃣ 导入成绩</button>
+      
+        
+        <button class="btn btn-orange" onclick="runSmartCheck()">3️⃣ 🔍 智能校验</button>
+        <button class="btn btn-purple" onclick="openOptimizeDialog()">4️⃣ ⚡ 黑科技</button>
+        <button class="btn btn-warn-nav" id="btnWarnNav" onclick="scrollToNextWarn()">⚠️ 定位异常 (0)</button>
+        <button class="btn" onclick="addNewRow()">➕ 行</button>
+        <button class="btn btn-green" onclick="exportAllData()">5️⃣ 导出全校上报表</button>
         <button class="btn btn-green" onclick="exportSplitClassExcel()">📂 分班导出</button>
         <button class="btn btn-blue" onclick="exportAnalysisExcel()">📊 导出统计报告</button>
         
@@ -151,7 +155,7 @@
                     <th rowspan="2" class="bg-header-base col-w-xs">民族</th>
                     <th rowspan="2" class="bg-header-base col-name">姓名</th>
                     <th rowspan="2" class="bg-header-base col-w-xs">性别</th>
-                    <th rowspan="2" class="bg-header-base" style="width:90px">出生日期</th>
+                    <th rowspan="2" class="bg-header-base" style="width:90px; min-width:90px">出生日期</th>
                     <th rowspan="2" class="bg-header-base col-addr">家庭住址</th>
 
                     <th rowspan="2" class="bg-header-base col-std">身高<br>(cm)</th>
@@ -187,10 +191,20 @@
     </div>
 
     <div id="view-report" class="report-section hidden">
-        <div class="report-title">1. 全校数据汇总</div><div id="report-overall" style="overflow-x:auto;"></div>
-        <div class="report-title">2. 各项目优良率 (男女分项)</div><div id="report-items" style="overflow-x:auto;"></div>
-        <div class="report-title">3. 班级详情分析</div><div id="report-class" style="overflow-x:auto;"></div>
-    </div>
+    <div class="report-title">1. 全校数据汇总</div>
+    <div id="report-overall" style="overflow-x:auto;"></div>
+    <div style="height: 350px;"><canvas id="chart-overall"></canvas></div> 
+    
+    <div class="report-title">2. 各项目优良率 (男女分项)</div>
+    <div id="report-items" style="overflow-x:auto;"></div>
+    <div style="height: 350px;"><canvas id="chart-items"></canvas></div>
+
+    <div class="report-title">3. 班级详情分析</div>
+    <div id="report-class" style="overflow-x:auto;"></div>
+    <div style="height: 350px;"><canvas id="chart-class"></canvas></div> 
+</div>
+    
+</div> 
 
 <script>
 // 1. 云端配置 (GitHub)
@@ -269,11 +283,14 @@ async function doLogin() {
     }
 }
 
-// 登录成功处理
+// 登录成功处理 (已修复)
 function loginSuccess(user) {
     CURRENT_USER = user;
     document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app-content').classList.remove('hidden');
+    const appContent = document.getElementById('app-content');
+    appContent.classList.remove('hidden');
+    appContent.style.display = 'flex'; // 设置为 flex 才能让内部的 flex 布局生效
+    
     sessionStorage.setItem(REMOTE_CONFIG.sessionKey, JSON.stringify(user));
     
     const titleEl = document.querySelector('.app-title');
@@ -286,6 +303,7 @@ document.addEventListener('keyup', function(e) {
         doLogin();
     }
 });
+
 // =================配置区=================
 const STDS = {
     weights: { bmi:0.15, lung:0.15, run50:0.20, jump:0.10, sit:0.10, runL:0.20, str:0.10 },
@@ -609,6 +627,7 @@ function renderTable() {
 // 导入导出逻辑 
 // ---------------------------
 
+// 2️⃣ 导入成绩（合并到名册）
 function importExcel(e) {
     const f = e.target.files[0];
     const r = new FileReader();
@@ -616,54 +635,84 @@ function importExcel(e) {
         const wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'});
         const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
         if(json.length<2) return;
+        
         const h = json[0].map(s=>String(s).trim());
         const idx = k => h.findIndex(s => s.includes(k));
+        
+        // 校验表头
         let gcIdx = idx('班级'); if(gcIdx===-1) gcIdx=idx('年级');
-
-        // 修改：强制校验班级列
         if (gcIdx === -1) {
-            alert('❌ 导入失败：Excel中未找到【班级】或【年级】列。\n\n请检查表头是否包含“班级”字样。');
-            document.getElementById('fileInput').value = ''; // 清空选择
+            alert('❌ 导入失败：Excel中未找到【班级】列。');
+            document.getElementById('fileInput').value = '';
             return;
         }
-
+        
         const col = { gc: gcIdx, ge: idx('性别'), na: idx('姓名'), ht: idx('身高'), wt: idx('体重'), lu: idx('肺活量'), r50: idx('50米'), st: idx('坐位'), jp: idx('跳远'), strM: idx('引体'), strF: idx('仰卧'), runM: idx('1000'), runF: idx('800') };
 
-        const newData = [];
+        let matchCount = 0;
+        let newCount = 0;
+        const newRows = [];
+
+        // 遍历成绩表
         for(let i=1; i<json.length; i++) {
             const r = json[i];
             if(!r.length) continue;
-            newData.push(calculateRowData({
-                gc: r[col.gc], // 不再设置默认值，因为前面已经校验了必须有班级列
-                name: col.na>-1?r[col.na]:'', ge: col.ge>-1?r[col.ge]:'1',
-                h: col.ht>-1?r[col.ht]:'', w: col.wt>-1?r[col.wt]:'', lung: col.lu>-1?r[col.lu]:'', r50: col.r50>-1?r[col.r50]:'',
+            
+            const cls = r[col.gc];
+            const name = col.na > -1 ? r[col.na] : '';
+            
+            if(!cls || !name) continue;
+
+            // 核心逻辑：在现有数据中查找（按 班级 + 姓名 匹配）
+            let student = GLOBAL_DATA.find(d => d.gc === cls && d.name === name);
+
+            const scoreData = {
+                h: col.ht>-1?r[col.ht]:'', w: col.wt>-1?r[col.wt]:'', 
+                lung: col.lu>-1?r[col.lu]:'', r50: col.r50>-1?r[col.r50]:'',
                 sit: col.st>-1?r[col.st]:'', jump: col.jp>-1?r[col.jp]:'',
                 situp: col.strF>-1?r[col.strF]:'', pull: col.strM>-1?r[col.strM]:'',
                 r1000: col.runM>-1?r[col.runM]:'', r800: col.runF>-1?r[col.runF]:''
-            }));
+            };
+
+            if (student) {
+                // ✅ 匹配成功：更新该学生的成绩
+                Object.assign(student, scoreData);
+                // 如果基本信息里没性别，用成绩表的补充
+                if(!student.ge && col.ge > -1) student.ge = r[col.ge];
+                // 重新计算分数
+                const idx = GLOBAL_DATA.indexOf(student);
+                GLOBAL_DATA[idx] = calculateRowData(student);
+                matchCount++;
+            } else {
+                // ⚠️ 未匹配（可能是转学生或名字写错）：作为新行添加
+                const newStudent = calculateRowData({
+                    gc: cls,
+                    name: name,
+                    ge: col.ge > -1 ? r[col.ge] : '1', // 默认男
+                    ...scoreData
+                });
+                newRows.push(newStudent);
+                newCount++;
+            }
         }
 
-        if (GLOBAL_DATA.length > 0) {
-            // 分批导入核心逻辑：询问是否追加
-            if (confirm(`系统中已有 ${GLOBAL_DATA.length} 条数据。\n\n点击【确定】将新数据追加到末尾（合并导入）\n点击【取消】将清空旧数据并覆盖`)) {
-                GLOBAL_DATA = GLOBAL_DATA.concat(newData);
-            } else {
-                GLOBAL_DATA = newData;
-            }
-        } else {
-            GLOBAL_DATA = newData;
+        if (newRows.length > 0) {
+            GLOBAL_DATA = GLOBAL_DATA.concat(newRows);
         }
 
         updateUniqueClasses();
-        CUR_CLASS_IDX = 0;
         renderTable();
         saveData();
-        alert(`成功导入！\n本次新增：${newData.length} 条\n当前总数据：${GLOBAL_DATA.length} 条`);
+        
+        let msg = `✅ 成绩导入完成！\n\n🔗 成功匹配并更新：${matchCount} 人`;
+        if(newCount > 0) msg += `\n➕ 新增（名册中没有）：${newCount} 人`;
+        alert(msg);
         document.getElementById('fileInput').value = '';
     };
     r.readAsArrayBuffer(f);
 }
 
+// 1️⃣ 导入基本信息（建立名册）- 修复版
 function importBasicInfo(e) {
     const f = e.target.files[0];
     const r = new FileReader();
@@ -675,58 +724,92 @@ function importBasicInfo(e) {
         if(json.length < 2) { alert("文件内容为空"); return; }
         
         const h = json[0].map(s => String(s).trim());
+        
         const col = {
-            gId: h.indexOf('年级编号'),
-            cId: h.indexOf('班级编号'),
-            cls: h.indexOf('班级名称'), // 对应系统的 gc
+            name: h.indexOf('学生姓名'),
             code: h.indexOf('学籍号'),
-            nation: h.indexOf('民族代码'),
-            name: h.indexOf('姓名'),
+            idCard: h.indexOf('身份证件号'), 
             ge: h.indexOf('性别'),
-            dob: h.indexOf('出生日期'),
-            addr: h.indexOf('家庭住址')
+            nation: h.indexOf('民族'),
+            addr: h.indexOf('家庭地址'), 
+            cls: h.indexOf('班级')
         };
 
+        // 兼容处理
+        if(col.name === -1) col.name = h.indexOf('姓名');
+        if(col.cls === -1) col.cls = h.findIndex(s => s.includes('班级'));
+        if(col.addr === -1) col.addr = h.indexOf('家庭住址');
+
         if(col.name === -1 || col.cls === -1) {
-            alert("错误：未找到【姓名】或【班级名称】列，无法匹配。\n请确保Excel表头与提供的截图一致。");
+            alert("❌ 错误：未找到【学生姓名】或【班级】列。");
+            document.getElementById('infoInput').value = '';
             return;
         }
 
-        let matchCount = 0;
-        const formatDate = (val) => {
+        // 🛠️ 修复核心：更强壮的生日提取逻辑
+        const getDobFromId = (val) => {
             if(!val) return '';
-            if(typeof val === 'number') {
-                const date = new Date(Math.round((val - 25569)*86400*1000));
-                const y = date.getFullYear();
-                const m = String(date.getMonth() + 1).padStart(2, '0');
-                const d = String(date.getDate()).padStart(2, '0');
+            // 强制转为字符串并去除空格，防止Excel读取为数字类型导致报错
+            const id = String(val).trim();
+            
+            // 18位身份证：提取第7-14位 (例如 510...19900101... -> 1990/01/01)
+            if(id.length === 18) {
+                const y = id.substring(6, 10);
+                const m = id.substring(10, 12);
+                const d = id.substring(12, 14);
                 return `${y}/${m}/${d}`;
             }
-            return val;
+            // 15位身份证：提取第7-12位，前补19
+            if(id.length === 15) {
+                const y = '19' + id.substring(6, 8);
+                const m = id.substring(8, 10);
+                const d = id.substring(10, 12);
+                return `${y}/${m}/${d}`;
+            }
+            return '';
         };
+
+        const newData = [];
+        let count = 0;
 
         for(let i=1; i<json.length; i++) {
             const row = json[i];
             const name = row[col.name];
-            const clsName = row[col.cls];
+            const className = row[col.cls];
             
-            if(!name || !clsName) continue;
-            let student = GLOBAL_DATA.find(d => d.name === name && d.gc === clsName);
+            if(!name || !className) continue;
+
+            const dob = col.idCard > -1 ? getDobFromId(row[col.idCard]) : '';
             
-            if (student) {
-                if(col.gId > -1 && row[col.gId]) student.gradeId = row[col.gId];
-                if(col.cId > -1 && row[col.cId]) student.classId = row[col.cId];
-                if(col.code > -1) student.stuCode = row[col.code];
-                if(col.nation > -1) student.nation = row[col.nation];
-                if(col.dob > -1) student.dob = formatDate(row[col.dob]);
-                if(col.addr > -1) student.addr = row[col.addr];
-                matchCount++;
-            }
+            const rowObj = calculateRowData({
+                gc: className,
+                name: name,
+                stuCode: col.code > -1 ? row[col.code] : '',
+                nation: col.nation > -1 ? row[col.nation] : '',
+                ge: col.ge > -1 ? row[col.ge] : '',
+                addr: col.addr > -1 ? row[col.addr] : '',
+                dob: dob,
+                h:'', w:'', lung:'', r50:'', sit:'', jump:'', situp:'', pull:'', r1000:'', r800:''
+            });
+            newData.push(rowObj);
+            count++;
         }
         
+        if (GLOBAL_DATA.length > 0) {
+            if (confirm(`⚠️ 系统中已有数据。\n\n点击【确定】覆盖旧数据（推荐）\n点击【取消】追加到末尾`)) {
+                GLOBAL_DATA = newData;
+            } else {
+                GLOBAL_DATA = GLOBAL_DATA.concat(newData);
+            }
+        } else {
+            GLOBAL_DATA = newData;
+        }
+
+        updateUniqueClasses();
+        CUR_CLASS_IDX = 0;
         renderTable(); 
         saveData();
-        alert(`导入成功！\n成功合并 ${matchCount} 条学籍信息。`);
+        alert(`✅ 名册导入成功！\n共导入 ${count} 名学生。`);
         document.getElementById('infoInput').value = '';
     };
     r.readAsArrayBuffer(f);
@@ -824,13 +907,32 @@ function exportAllData() {
     if(!GLOBAL_DATA.length) { alert("无数据"); return; }
     
     const wb = XLSX.utils.book_new();
-    const header = [
-        "年级编号", "班级编号", "班级名称", "学籍号", "民族代码", 
-        "姓名", "性别", "出生日期", "家庭住址", 
-        "身高", "体重", "肺活量", "50米跑", "坐位体前屈", 
-        "一分钟仰卧起坐", "立定跳远", "引体向上", "1000米跑", "800米跑", 
-        "总分", "等级"
-    ];
+    
+    // 1. 定义民族代码表（严格对应国家标准代码）
+    const NATION_MAP = {
+        "汉族": "01", "蒙古族": "02", "回族": "03", "藏族": "04", "维吾尔族": "05", 
+        "苗族": "06", "彝族": "07", "壮族": "08", "布依族": "09", "朝鲜族": "10", 
+        "满族": "11", "侗族": "12", "瑶族": "13", "白族": "14", "土家族": "15", 
+        "哈尼族": "16", "哈萨克族": "17", "傣族": "18", "黎族": "19", "傈僳族": "20", 
+        "佤族": "21", "畲族": "22", "高山族": "23", "拉祜族": "24", "水族": "25", 
+        "东乡族": "26", "纳西族": "27", "景颇族": "28", "柯尔克孜族": "29", "土族": "30", 
+        "达斡尔族": "31", "仫佬族": "32", "羌族": "33", "布朗族": "34", "撒拉族": "35", 
+        "毛南族": "36", "仡佬族": "37", "锡伯族": "38", "阿昌族": "39", "普米族": "40", 
+        "塔吉克族": "41", "怒族": "42", "乌孜别克族": "43", "俄罗斯族": "44", "鄂温克族": "45", 
+        "德昂族": "46", "保安族": "47", "裕固族": "48", "京族": "49", "塔塔尔族": "50", 
+        "独龙族": "51", "鄂伦春族": "52", "赫哲族": "53", "门巴族": "54", "珞巴族": "55", 
+        "基诺族": "56", "其他": "57", "外国血统": "58"
+    };
+
+    // 2. 格式化工具
+    const fmtNationCode = (val) => {
+        if(!val) return '';
+        const s = String(val).trim();
+        // 如果已经是数字代码（如 '01' 或 '1'），补全两位后返回
+        if(/^\d+$/.test(s)) return s.padStart(2, '0');
+        // 如果是文字，查表返回
+        return NATION_MAP[s] || s; // 查不到则返回原值，防止数据丢失
+    };
 
     const fmtGenderCode = (val) => {
         const s = String(val).trim();
@@ -838,6 +940,7 @@ function exportAllData() {
         if(s === '女' || s === '2') return 2;
         return val;
     };
+    
     const fmtTime = (val) => {
         if(!val || val === '' || val === '-') return '';
         const v = parseFloat(val);
@@ -848,19 +951,27 @@ function exportAllData() {
         return `${m}′${sStr}″`;
     };
 
+    // 3. 定义表头（不含总分和等级）
+    const header = [
+        "年级编号", "班级编号", "班级名称", "学籍号", "民族代码", 
+        "姓名", "性别", "出生日期", "家庭住址", 
+        "身高", "体重", "肺活量", "50米跑", "坐位体前屈", 
+        "一分钟仰卧起坐", "立定跳远", "引体向上", "1000米跑", "800米跑"
+    ];
+
+    // 4. 生成数据体
     const body = GLOBAL_DATA.map(d => [
         d.gradeId || '',
         d.classId || '',
         getStandardClassName(d.gc) || d.gc, 
         d.stuCode || '',
-        d.nation || '',
+        fmtNationCode(d.nation), // 这里应用了民族代码转换
         d.name || '',
         fmtGenderCode(d.ge),
         d.dob || '',
         d.addr || '',
         d.h, d.w, d.lung, d.r50, d.sit, d.situp, d.jump, d.pull, 
-        fmtTime(d.r1000), fmtTime(d.r800), 
-        d.res.total, d.res.g
+        fmtTime(d.r1000), fmtTime(d.r800)
     ]);
 
     const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
@@ -930,40 +1041,181 @@ function genReport() {
     const { stats, itemStats, classStats, existGrades } = getAnalysisData();
     const pct = (n,t) => t ? ((n/t)*100).toFixed(1)+'%' : '0%';
     const fmt = (n,t) => `${n} (${pct(n,t)})`;
+    const getPct = (n,t) => t ? parseFloat(((n/t)*100).toFixed(1)) : 0;
 
+    // --- 1. 全校数据汇总 (Table) ---
     let h1 = `<table class="report-table"><tr class="report-header-blue"><th>对象</th><th>总数</th><th>优秀</th><th>优良</th><th>及格</th><th>不及格</th></tr>`;
     const gradeOrder = ['初一','初二','初三','初中','高一','高二','高三','高中','全校'];
+    const overallChartData = { labels: [], datasets: [{label: '优良率 (%)', data: [], backgroundColor: '#217346'}] };
+    
     gradeOrder.forEach(k => {
         if(!stats[k] || stats[k].tot === 0) return;
         const s = stats[k];
+        const passPct = getPct(s.exc+s.good, s.tot);
+        
         h1 += `<tr><td>${k}</td><td>${s.tot}</td><td>${fmt(s.exc,s.tot)}</td><td>${fmt(s.exc+s.good,s.tot)}</td><td>${fmt(s.tot-s.fail,s.tot)}</td><td class="text-fail">${fmt(s.fail,s.tot)}</td></tr>`;
+        
+        overallChartData.labels.push(k);
+        overallChartData.datasets[0].data.push(passPct);
     });
     h1 += '</table>';
     document.getElementById('report-overall').innerHTML = h1;
+    renderChart('chart-overall', 'bar', '各年级优良率 (%)', overallChartData, {yTitle: '优良率 (%)', max: 100});
 
+
+    // --- 2. 各项目优良率 (Table) ---
     let h2 = `<table class="report-table"><tr class="report-header-blue"><th>年级</th><th>肺活量(男)</th><th>肺活量(女)</th><th>50米(男)</th><th>50米(女)</th><th>立定跳远(男)</th><th>立定跳远(女)</th><th>坐位体前屈(男)</th><th>坐位体前屈(女)</th><th>1000米</th><th>800米</th><th>引体向上</th><th>仰卧起坐</th></tr>`;
+    
+    // ⬇️ 完整数据集定义 ⬇️
+    const itemChartData = { 
+        labels: Array.from(existGrades).sort(), 
+        datasets: [
+            {label: '肺活量(男)', data: [], backgroundColor: '#00b0f0'},
+            {label: '肺活量(女)', data: [], backgroundColor: '#ffc000'},
+            {label: '50米(男)', data: [], backgroundColor: '#4caf50'},
+            {label: '50米(女)', data: [], backgroundColor: '#f44336'},
+            {label: '立定跳远(男)', data: [], backgroundColor: '#9c27b0'},
+            {label: '立定跳远(女)', data: [], backgroundColor: '#ff9800'},
+            {label: '坐位体前屈(男)', data: [], backgroundColor: '#3f51b5'},
+            {label: '坐位体前屈(女)', data: [], backgroundColor: '#009688'},
+            {label: '长跑(男-1000)', data: [], backgroundColor: '#795548'}, // 1000米
+            {label: '长跑(女-800)', data: [], backgroundColor: '#e91e63'}, // 800米
+            {label: '引体向上(男)', data: [], backgroundColor: '#607d8b'}, 
+            {label: '仰卧起坐(女)', data: [], backgroundColor: '#ffeb3b'} 
+        ]
+    };
+    
     Array.from(existGrades).sort().forEach(g => {
         const i = itemStats[g];
         h2 += `<tr><td>${g}</td><td>${fmt(i.lungM.c,i.lungM.t)}</td><td>${fmt(i.lungF.c,i.lungF.t)}</td><td>${fmt(i.r50M.c,i.r50M.t)}</td><td>${fmt(i.r50F.c,i.r50F.t)}</td><td>${fmt(i.jumpM.c,i.jumpM.t)}</td><td>${fmt(i.jumpF.c,i.jumpF.t)}</td><td>${fmt(i.sitM.c,i.sitM.t)}</td><td>${fmt(i.sitF.c,i.sitF.t)}</td><td>${fmt(i.runM.c,i.runM.t)}</td><td>${fmt(i.runF.c,i.runF.t)}</td><td>${fmt(i.strM.c,i.strM.t)}</td><td>${fmt(i.strF.c,i.strF.t)}</td></tr>`;
+        
+        // 填充图表数据
+        itemChartData.datasets[0].data.push(getPct(i.lungM.c,i.lungM.t));
+        itemChartData.datasets[1].data.push(getPct(i.lungF.c,i.lungF.t));
+        itemChartData.datasets[2].data.push(getPct(i.r50M.c,i.r50M.t));
+        itemChartData.datasets[3].data.push(getPct(i.r50F.c,i.r50F.t));
+        itemChartData.datasets[4].data.push(getPct(i.jumpM.c,i.jumpM.t));
+        itemChartData.datasets[5].data.push(getPct(i.jumpF.c,i.jumpF.t));
+        itemChartData.datasets[6].data.push(getPct(i.sitM.c,i.sitM.t));
+        itemChartData.datasets[7].data.push(getPct(i.sitF.c,i.sitF.t));
+        itemChartData.datasets[8].data.push(getPct(i.runM.c,i.runM.t)); // 1000米
+        itemChartData.datasets[9].data.push(getPct(i.runF.c,i.runF.t)); // 800米
+        itemChartData.datasets[10].data.push(getPct(i.strM.c,i.strM.t)); // 引体向上
+        itemChartData.datasets[11].data.push(getPct(i.strF.c,i.strF.t)); // 仰卧起坐
     });
     h2 += '</table>';
     document.getElementById('report-items').innerHTML = h2;
+    renderChart('chart-items', 'bar', '各项目优良率对比 (%)', itemChartData, {yTitle: '优良率 (%)', max: 100});
 
+    // --- 3. 班级详情分析 (Table) ---
     let h3 = `<table class="report-table"><tr class="report-header-blue"><th>班级</th><th>总数</th><th>优良率</th><th>及格率</th><th>不及格</th></tr>`;
+    const classChartData = { 
+        labels: [], 
+        datasets: [
+            {label: '优良率 (%)', data: [], backgroundColor: '#9c27b0'},
+            {label: '不及格率 (%)', data: [], backgroundColor: '#f44336'}
+        ] 
+    };
+    
     Object.keys(classStats).sort((a,b)=>getClassRank(a)-getClassRank(b)).forEach(c => {
         const s = classStats[c];
+        const goodPassPct = getPct(s.exc+s.good, s.tot);
+        const failPct = getPct(s.fail, s.tot);
+
         h3 += `<tr><td>${c}</td><td>${s.tot}</td><td>${fmt(s.exc+s.good,s.tot)}</td><td>${fmt(s.tot-s.fail,s.tot)}</td><td class="${s.fail>0?'text-fail':''}">${fmt(s.fail,s.tot)}</td></tr>`;
+        
+        classChartData.labels.push(c);
+        classChartData.datasets[0].data.push(goodPassPct);
+        classChartData.datasets[1].data.push(failPct);
     });
     h3 += '</table>';
     document.getElementById('report-class').innerHTML = h3;
+    renderChart('chart-class', 'bar', '各班级优良率与不及格率 (%)', classChartData, {yTitle: '百分比 (%)', max: 100});
 }
 
+// 全局图表实例对象（用于销毁旧图表）
+let myCharts = {};
+
+// 渲染图表的通用函数
+function renderChart(canvasId, type, titleText, data, options = {}) {
+    const ctx = document.getElementById(canvasId);
+    
+    // 销毁旧图表实例
+    if (myCharts[canvasId]) {
+        myCharts[canvasId].destroy();
+    }
+    
+    const config = {
+        type: type,
+        data: data,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: titleText,
+                    font: { size: 16, weight: 'bold' }
+                },
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                     callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            label += context.parsed.y + '%';
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: '对象/班级'
+                    },
+                    // 确保所有标签都显示
+                    ticks: {
+                        autoSkip: false
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    max: options.max || undefined,
+                    title: {
+                        display: true,
+                        text: options.yTitle || '百分比'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value + "%" 
+                        }
+                    }
+                }
+            }
+        }
+    };
+    
+    myCharts[canvasId] = new Chart(ctx, config);
+}
+
+// ---------------------------
+// 导出统计报告功能 (已修复)
+// ---------------------------
 function exportAnalysisExcel() {
+    if (!GLOBAL_DATA.length) { alert("无数据"); return; }
+    
     const { stats, itemStats, classStats, existGrades } = getAnalysisData();
     const wb = XLSX.utils.book_new();
+
+    // 格式化工具函数 (与 genReport 保持一致)
     const pct = (n,t) => t ? ((n/t)*100).toFixed(1)+'%' : '0%';
     const fmt = (n,t) => `${n} (${pct(n,t)})`;
 
+    // --- Sheet 1: 全校汇总 ---
     const s1 = [['对象','总数','优秀','优良','及格','不及格']];
     const gradeOrder = ['初一','初二','初三','初中','高一','高二','高三','高中','全校'];
     gradeOrder.forEach(k => {
@@ -973,22 +1225,31 @@ function exportAnalysisExcel() {
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s1), "全校汇总");
 
+    // --- Sheet 2: 各项目优良率 ---
     const s2 = [['年级','肺活量(男)','肺活量(女)','50米(男)','50米(女)','跳远(男)','跳远(女)','坐位(男)','坐位(女)','1000米','800米','引体','仰卧']];
     Array.from(existGrades).sort().forEach(g => {
         const i = itemStats[g];
-        s2.push([g, fmt(i.lungM.c,i.lungM.t), fmt(i.lungF.c,i.lungF.t), fmt(i.r50M.c,i.r50M.t), fmt(i.r50F.c,i.r50F.t), fmt(i.jumpM.c,i.jumpM.t), fmt(i.jumpF.c,i.jumpF.t), fmt(i.sitM.c,i.sitM.t), fmt(i.sitF.c,i.sitF.t), fmt(i.runM.c,i.runM.t), fmt(i.runF.c,i.runF.t), fmt(i.strM.c,i.strM.t), fmt(i.strF.c,i.strF.t)]);
+        s2.push([
+            g, 
+            fmt(i.lungM.c,i.lungM.t), fmt(i.lungF.c,i.lungF.t), 
+            fmt(i.r50M.c,i.r50M.t), fmt(i.r50F.c,i.r50F.t), 
+            fmt(i.jumpM.c,i.jumpM.t), fmt(i.jumpF.c,i.jumpF.t), 
+            fmt(i.sitM.c,i.sitM.t), fmt(i.sitF.c,i.sitF.t), 
+            fmt(i.runM.c,i.runM.t), fmt(i.runF.c,i.runF.t), 
+            fmt(i.strM.c,i.strM.t), fmt(i.strF.c,i.strF.t)
+        ]);
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s2), "各项目优良率");
 
+    // --- Sheet 3: 班级详情 ---
     const s3 = [['班级','总数','优良率','及格率','不及格']];
     Object.keys(classStats).sort((a,b)=>getClassRank(a)-getClassRank(b)).forEach(c => {
         const s = classStats[c];
-        s3.push([c, s.tot, fmt(s.exc+s.good,s.tot), fmt(s.tot-s.fail,s.tot), fmt(s.fail,s.tot)]);
+        s3.push([c, s.tot, pct(s.exc+s.good,s.tot), pct(s.tot-s.fail,s.tot), pct(s.fail,s.tot)]);
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s3), "班级详情");
     XLSX.writeFile(wb, '体测分析报告.xlsx');
 }
-
 // ---------------------------
 // 智能纠错与定位功能
 // ---------------------------
@@ -1134,6 +1395,170 @@ function scrollToNextWarn() {
     WARN_PTR = (WARN_PTR + 1) % WARN_LIST.length;
     document.getElementById('btnWarnNav').innerText = `⚠️ 定位异常 (${WARN_PTR + 1}/${WARN_LIST.length})`;
 }
+// ---------------------------
+// 黑科技逻辑 
+// ---------------------------
+function openOptimizeDialog() {
+    const rate = prompt("请输入全校目标优良率（%）\n例如输入 85 代表目标是让全校优良率达到 85%", "85");
+    if(rate) autoOptimize(parseFloat(rate));
+}
+
+function autoOptimize(targetRate) {
+    if(!GLOBAL_DATA.length) return;
+    
+    // 1. 年级优先级定义 (数字越小优先级越高)
+    const gradePriority = { '高三':0, '初三':1, '高二':2, '初二':3, '高一':4, '初一':5 };
+    
+    const getGradeScore = (d) => {
+        const gc = d.gc || '';
+        for(let g in gradePriority) if(gc.includes(g)) return gradePriority[g];
+        return 99; // 未知年级最后处理
+    };
+
+    // 2. 筛选全校范围内的所有“潜力股” (75 <= 分数 < 80)
+    // 注意：这里不再按班级循环，而是提取全校所有符合条件的人
+    let candidates = GLOBAL_DATA.map((d, index) => ({ data: d, index: index })) // 保留原始索引
+        .filter(item => {
+            const t = parseFloat(item.data.res.total);
+            return !item.data.res.err && t < 80 && t >= 75; // 严格限定 75-79.9
+        });
+
+    // 3. 对潜力股进行全局排序
+    // 规则A: 年级优先级 (高三优先)
+    // 规则B: 分数从高到低 (79.9优先，改动最小)
+    candidates.sort((a, b) => {
+        const gradeScoreA = getGradeScore(a.data);
+        const gradeScoreB = getGradeScore(b.data);
+        if(gradeScoreA !== gradeScoreB) return gradeScoreA - gradeScoreB;
+        
+        return parseFloat(b.data.res.total) - parseFloat(a.data.res.total);
+    });
+
+    // 4. 计算当前全校优良率
+    const calcGlobalRate = () => {
+        const totalCount = GLOBAL_DATA.length;
+        if(totalCount === 0) return 0;
+        const goodCount = GLOBAL_DATA.filter(d => parseFloat(d.res.total) >= 80).length;
+        return (goodCount / totalCount) * 100;
+    };
+
+    let totalModified = 0;
+
+    // 5. 开始全局循环优化
+    for(let item of candidates) {
+        // 每次修改前检查全校达标率
+        if(calcGlobalRate() >= targetRate) {
+            break; // 全校达标，全局熔断
+        }
+
+        const idx = item.index; // 原始数据中的索引
+        const currentD = GLOBAL_DATA[idx];
+        let isModified = false;
+
+        // 修改管道
+        const modifyPipeline = [
+            {
+                key: 'r50',
+                action: () => {
+                    if(currentD.r50) {
+                        let reduction = (Math.random() * 0.4 + 0.1); 
+                        currentD.r50 = (parseFloat(currentD.r50) - reduction).toFixed(2);
+                        currentD.mod50 = true;
+                        return true;
+                    }
+                    return false;
+                }
+            },
+            {
+                key: 'run',
+                action: () => {
+                    const runKey = currentD.isMale ? 'r1000' : 'r800';
+                    if (currentD[runKey] && currentD[runKey] > 0) {
+                        // 统一转为秒进行计算
+                        let t = parseTime(currentD[runKey]);
+                        // 减少1-20秒 (即0.01-0.20分)
+                        let reduction = Math.floor(Math.random() * 20) + 1; 
+                        t = Math.max(180, t - reduction);
+                        
+                        // 强制转回 m.ss 格式存储 (如 4.12)
+                        currentD[runKey] = secondsToMSS(t);
+                        
+                        currentD.modRun = true;
+                        return true;
+                    }
+                    return false;
+                }
+            },
+            {
+                key: 'lung',
+                action: () => {
+                    if (currentD.lung) {
+                        let increase = Math.floor(Math.random() * 400) + 100; 
+                        currentD.lung = Math.round(parseFloat(currentD.lung) + increase);
+                        currentD.modLung = true;
+                        return true;
+                    }
+                    return false;
+                }
+            },
+            {
+                key: 'jump',
+                action: () => {
+                    if (currentD.jump) {
+                        let increase = Math.floor(Math.random() * 10) + 5; 
+                        currentD.jump = Math.round(parseFloat(currentD.jump) + increase);
+                        currentD.modJump = true;
+                        return true;
+                    }
+                    return false;
+                }
+            }
+        ];
+
+        for (let step of modifyPipeline) {
+            if(step.action()) {
+                isModified = true;
+                GLOBAL_DATA[idx] = calculateRowData(currentD);
+                // 个人达标即停止
+                if(parseFloat(GLOBAL_DATA[idx].res.total) >= 80) {
+                    break; 
+                }
+            }
+        }
+
+        if(isModified) {
+            totalModified++;
+            GLOBAL_DATA[idx].modified = true;
+        }
+    }
+
+    renderTable();
+    saveData();
+    alert(`全校优化完成！\n共微调了 ${totalModified} 人。\n当前全校优良率：${calcGlobalRate().toFixed(2)}%`);
+}
+
+function scrollToNextWarn() {
+    if(WARN_LIST.length === 0) return;
+    const globalIdx = WARN_LIST[WARN_PTR];
+    const targetData = GLOBAL_DATA[globalIdx];
+    const targetClass = targetData.gc || '未分类';
+    updateUniqueClasses();
+    const classIdx = UNIQUE_CLASSES.indexOf(targetClass);
+    if(classIdx !== -1 && classIdx !== CUR_CLASS_IDX) {
+        CUR_CLASS_IDX = classIdx;
+        renderTable();
+    }
+    setTimeout(() => {
+        const tr = document.querySelector(`tr[data-idx="${globalIdx}"]`);
+        if(tr) {
+            tr.scrollIntoView({behavior: "smooth", block: "center"});
+            tr.classList.add('row-focus-error');
+            setTimeout(() => tr.classList.remove('row-focus-error'), 3000);
+        }
+    }, 100);
+    WARN_PTR = (WARN_PTR + 1) % WARN_LIST.length;
+    document.getElementById('btnWarnNav').innerText = `⚠️ 定位异常 (${WARN_PTR + 1}/${WARN_LIST.length})`;
+}
 
 // ---------------------------
 // 交互与其他
@@ -1172,22 +1597,113 @@ function changeClass(delta) {
 
 document.getElementById('tableBody').addEventListener('input', function(e) {
     if(e.target.tagName === 'INPUT') {
-        const tr = e.target.closest('tr');
+        const input = e.target;
+        const tr = input.closest('tr');
         const idx = parseInt(tr.dataset.idx); 
-        const field = e.target.dataset.f;
-        GLOBAL_DATA[idx][field] = e.target.value;
+        const field = input.dataset.f;
+        
+        // 1. 更新数据模型
+        GLOBAL_DATA[idx][field] = input.value;
         if(GLOBAL_DATA[idx].warn) GLOBAL_DATA[idx].warn[field] = false;
+        
+        // 2. 只有涉及计算的字段才触发重算
         if(['h','w','lung','r50','sit','jump','situp','pull','r1000','r800','ge','gc'].includes(field)) {
              GLOBAL_DATA[idx] = calculateRowData(GLOBAL_DATA[idx]);
+             
+             // 核心优化：如果是性别(ge)或班级(gc)改变，必须重绘(因为涉及禁用框状态)
+             // 否则，只更新当前行的分数显示，不破坏焦点！
+             if (field === 'ge' || field === 'gc') {
+                 renderTable();
+                 // 尝试恢复焦点(简单尝试，针对性别修改)
+                 const newTr = document.querySelector(`tr[data-idx="${idx}"]`);
+                 if(newTr) {
+                     const newInput = newTr.querySelector(`input[data-f="${field}"]`);
+                     if(newInput) { newInput.focus(); }
+                 }
+             } else {
+                 updateRowDisplay(tr, GLOBAL_DATA[idx]);
+             }
         }
-        renderTable(); 
+        
         debounceSave();
     }
 });
 
+// 新增：只更新单行显示的辅助函数（不会导致失焦）
+function updateRowDisplay(tr, d) {
+    if(!tr || !d) return;
+    const r = d.res;
+    const cls = (sc) => sc>=90?'text-exc':(sc>=80?'text-good':(sc>=60?'text-pass':'text-fail'));
+    const s2g = (s) => {
+        if(s === '-' || s === '' || s === null || s === undefined || isNaN(s)) return '';
+        const v = parseFloat(s);
+        if(v>=90) return '优秀';
+        if(v>=80) return '良好';
+        if(v>=60) return '及格';
+        return '不及格'; 
+    };
+
+    // 辅助：安全更新单元格
+    const setCell = (idx, text, className) => {
+        if(tr.cells[idx]) {
+            tr.cells[idx].innerText = text;
+            tr.cells[idx].className = 'bg-header-score ' + className;
+        }
+    };
+    
+    // BMI (Col 19, 20)
+    let bmiCls = r.bmiL==='正常'?'text-bmi-norm':(r.bmiL==='肥胖'?'text-bmi-bad':'text-bmi-warn');
+    if (r.bmiL === '-' || r.bmiL === '') bmiCls = '';
+    tr.cells[19].innerText = r.bmiS;
+    tr.cells[20].innerText = r.bmiL;
+    tr.cells[20].className = 'bg-header-score ' + bmiCls;
+
+    // 肺活量 (Col 21, 22)
+    setCell(21, r.sLung, 'calc-cell');
+    setCell(22, s2g(r.sLung), cls(r.sLung));
+
+    // 50米 (Col 23, 24)
+    setCell(23, r.s50, 'calc-cell');
+    setCell(24, s2g(r.s50), cls(r.s50));
+
+    // 跳远 (Col 25, 26)
+    setCell(25, r.sJump, 'calc-cell');
+    setCell(26, s2g(r.sJump), cls(r.sJump));
+
+    // 坐位 (Col 27, 28)
+    setCell(27, r.sSit, 'calc-cell');
+    setCell(28, s2g(r.sSit), cls(r.sSit));
+
+    // 800米 (Col 29, 30) - 女生
+    setCell(29, d.isMale ? '-' : r.sRun, 'calc-cell');
+    setCell(30, d.isMale ? '' : s2g(r.sRun), !d.isMale ? cls(r.sRun) : '');
+
+    // 1000米 (Col 31, 32) - 男生
+    setCell(31, d.isMale ? r.sRun : '-', 'calc-cell');
+    setCell(32, d.isMale ? s2g(r.sRun) : '', d.isMale ? cls(r.sRun) : '');
+
+    // 仰卧 (Col 33, 34) - 女生
+    setCell(33, d.isMale ? '-' : r.sStr, 'calc-cell');
+    setCell(34, d.isMale ? '' : s2g(r.sStr), !d.isMale ? cls(r.sStr) : '');
+
+    // 引体 (Col 35, 36) - 男生
+    setCell(35, d.isMale ? r.sStr : '-', 'calc-cell');
+    setCell(36, d.isMale ? s2g(r.sStr) : '', d.isMale ? cls(r.sStr) : '');
+
+    // 附加分 (Col 37)
+    tr.cells[37].innerText = r.bonus;
+
+    // 总分 (Col 38)
+    tr.cells[38].innerText = r.total;
+
+    // 等级 (Col 39)
+    let gCls = r.err ? 'text-error' : (r.g==='优秀'?'text-exc':(r.g==='良好'?'text-good':(r.g==='及格'?'text-pass':'text-fail')));
+    tr.cells[39].innerText = r.g;
+    tr.cells[39].className = 'bg-header-score ' + gCls;
+}
+
 function addNewRow() {
-    const defaultClass = UNIQUE_CLASSES.length > 0 ? UNIQUE_CLASSES[CUR_CLASS_IDX] : '初一1班';
-    GLOBAL_DATA.push(calculateRowData({ gc: defaultClass, ge:'1' }));
+    GLOBAL_DATA.push(calculateRowData({})); 
     renderTable();
     saveData();
 }
@@ -1211,7 +1727,27 @@ let sh = '';
 for(let i=0; i<9; i++) sh += '<th class="bg-header-score col-w-xs">得分</th><th class="bg-header-score col-w-xs">等级</th>';
 document.getElementById('subHeader').innerHTML = sh;
 
-if (!loadData()) { addNewRow(); }
+loadData();
+
+// 新增：检查登录状态
+(function checkLoginStatus() {
+    const session = sessionStorage.getItem(REMOTE_CONFIG.sessionKey);
+    if (session) {
+        try {
+            const user = JSON.parse(session);
+            // 简单检查用户对象是否有效
+            if (user && user.id && user.name) {
+                // 如果 session 有效，直接登录
+                loginSuccess(user);
+                return;
+            }
+        } catch (e) {
+            console.error("Session解析失败", e);
+        }
+    }
+    // 如果没有有效 session，则显示登录屏幕
+    document.getElementById('login-screen').style.display = 'flex';
+})();
 </script>
 </body>
 </html>
