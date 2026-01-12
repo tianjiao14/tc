@@ -72,6 +72,25 @@
     </style>
 </head>
 <body>
+<div id="login-screen" class="fixed inset-0 bg-gray-800 flex items-center justify-center z-[100]">
+    <div class="bg-white p-8 rounded-lg shadow-xl w-80 text-center">
+        <h2 id="lock-title" class="text-xl font-bold mb-4 text-gray-700">🔒 系统登录</h2>
+        <p id="lock-tip" class="text-gray-500 text-sm mb-4">请验证身份</p>
+        
+        <div class="mb-3 text-left">
+            <label class="text-xs text-gray-400 ml-1">账号</label>
+            <input type="text" id="userInput" class="w-full border border-gray-300 p-2 rounded text-lg outline-none focus:border-green-500" placeholder="请输入工号/账号">
+        </div>
+
+        <div class="mb-6 text-left">
+            <label class="text-xs text-gray-400 ml-1">密码</label>
+            <input type="password" id="passInput" class="w-full border border-gray-300 p-2 rounded text-lg outline-none focus:border-green-500" placeholder="请输入密码">
+        </div>
+
+        <button id="loginBtn" onclick="doLogin()" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700 transition">登录系统</button>
+        <p id="login-msg" class="text-red-500 text-xs mt-2 hidden">账号或密码错误</p>
+    </div>
+</div>  <div id="app-content" class="hidden" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
     <div class="toolbar">
         <span class="app-title">📊 体质 & 视力中心</span>
         <input type="file" id="infoInput" accept=".xlsx,.xls" style="display:none" onchange="importBasicInfo(event)">
@@ -205,7 +224,99 @@ window.onerror = function(msg, url, line) {
     alert("系统检测到脚本错误，可能是复制粘贴不完整导致的：\n" + msg + "\n行号：" + line);
     return false;
 };
+// 1. 云端配置 (GitHub)
+// ==========================================
+const REMOTE_CONFIG = {
+    // ⚠️ 请将此处替换为你第二步获取的 RAW 链接
+    url: "https://raw.githubusercontent.com/tianjiao14/tc/refs/heads/main/config.json", 
+    sessionKey: "tice_user_session_v4" // 升级版本号以清除旧缓存
+};
 
+// ==========================================
+// 2. 登录与安全逻辑
+// ==========================================
+let CURRENT_USER = null;
+
+// 执行登录
+async function doLogin() {
+    const userIn = document.getElementById('userInput');
+    const passIn = document.getElementById('passInput');
+    const msg = document.getElementById('login-msg');
+    const btn = document.getElementById('loginBtn');
+    const uid = userIn.value.trim();
+    const pwd = passIn.value.trim();
+
+    if (!uid || !pwd) {
+        showError("请输入账号和密码");
+        return;
+    }
+
+    try {
+        btn.disabled = true;
+        btn.innerText = "验证中...";
+        msg.classList.add('hidden');
+
+        // 加时间戳 ?t=... 防止 GitHub 缓存延迟
+        const response = await fetch(REMOTE_CONFIG.url + '?t=' + new Date().getTime());
+        if (!response.ok) throw new Error("连接服务器失败");
+        
+        const data = await response.json();
+
+        // 检查系统锁定
+        if (data.isLocked) {
+            alert(data.lockMessage || "系统已暂停服务");
+            resetBtn();
+            return;
+        }
+
+        // 更新标题
+        if(data.systemTitle) document.getElementById('lock-title').innerText = data.systemTitle;
+
+        // 验证用户
+        const validUser = data.users.find(u => u.id === uid && u.pass === pwd && u.active === true);
+
+        if (validUser) {
+            loginSuccess(validUser);
+        } else {
+            showError("账号密码错误或已被停用");
+            resetBtn();
+            passIn.classList.add('border-red-500');
+            setTimeout(() => passIn.classList.remove('border-red-500'), 200);
+        }
+
+    } catch (e) {
+        console.error(e);
+        showError("网络连接失败，请检查网络");
+        resetBtn();
+    }
+
+    function showError(txt) {
+        msg.innerText = txt;
+        msg.classList.remove('hidden');
+    }
+    function resetBtn() {
+        btn.disabled = false;
+        btn.innerText = "登录系统";
+    }
+}
+function loginSuccess(user) {
+    CURRENT_USER = user;
+    document.getElementById('login-screen').style.display = 'none';
+    const appContent = document.getElementById('app-content');
+    appContent.classList.remove('hidden');
+    appContent.style.display = 'flex'; // 设置为 flex 才能让内部的 flex 布局生效
+    
+    sessionStorage.setItem(REMOTE_CONFIG.sessionKey, JSON.stringify(user));
+    
+    const titleEl = document.querySelector('.app-title');
+    if(titleEl) titleEl.innerText = `📊 ${user.name} | 体测系统`;
+}
+
+document.addEventListener('keyup', function(e) {
+    if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') {
+        doLogin();
+    }
+});
 // =================配置区=================
 const STDS = {
     weights: { bmi:0.15, lung:0.15, run50:0.20, jump:0.10, sit:0.10, runL:0.20, str:0.10 },
