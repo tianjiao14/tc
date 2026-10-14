@@ -542,15 +542,22 @@
             </div>
 
             <div class="dashboard-card" style="background: #fafafa; border-style: dashed;">
-                <div style="font-size: 12px; font-weight: bold; color: #666; margin-bottom: 8px;">⚙️ 数据备份与跨设备合并</div>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <button class="btn-secondary" style="flex:1; min-width:80px; padding:6px 8px; font-size:12px;" onclick="exportBackupData()">📥 导出备份</button>
-                    <button class="btn-secondary" style="flex:1; min-width:80px; padding:6px 8px; font-size:12px; background-color: #5c6bc0;" onclick="document.getElementById('importFile').click()">📤 导入合并备份</button>
-                    <button class="btn-secondary" style="flex:1; min-width:80px; padding:6px 8px; font-size:12px; background-color: #FF7043;" onclick="clearAllScoresOnly()">🧹 清空成绩</button>
-                    <button class="btn-danger-sys" style="flex:1; min-width:80px; padding:6px 8px; font-size:12px;" onclick="systemReset()">🚨 全部重置</button>
-                    <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importBackupData(event)">
-                </div>
-            </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; flex-wrap:wrap; gap:4px;">
+        <span style="font-size: 12px; font-weight: bold; color: #666;">⚙️ 数据备份、跨设备合并与3年历史存档</span>
+        <span id="archiveStatusBanner" style="font-size: 11px; color: #E65100; font-weight: bold;">📌 当前状态：实时工作区</span>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+        <button class="btn-green" style="flex:1; min-width:110px; padding:7px 8px; font-size:12px;" onclick="saveCurrentToYearArchive()">🗄️ 保存本次测试成绩</button>
+        <button class="btn-blue" style="flex:1; min-width:110px; padding:7px 8px; font-size:12px;" onclick="openYearArchiveModal()">📅 查看/对比3年数据</button>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn-secondary" style="flex:1; min-width:80px; padding:6px 8px; font-size:12px;" onclick="exportBackupData()">📥 导出备份</button>
+        <button class="btn-secondary" style="flex:1; min-width:80px; padding:6px 8px; font-size:12px; background-color: #5c6bc0;" onclick="document.getElementById('importFile').click()">📤 导入合并备份</button>
+        <button class="btn-secondary" style="flex:1; min-width:80px; padding:6px 8px; font-size:12px; background-color: #FF7043;" onclick="clearAllScoresOnly()">🧹 清空成绩</button>
+        <button class="btn-danger-sys" style="flex:1; min-width:80px; padding:6px 8px; font-size:12px;" onclick="systemReset()">🚨 全部重置</button>
+        <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importBackupData(event)">
+    </div>
+</div>
         </div>
 
         <!-- 视图 2：数据分析 -->
@@ -639,15 +646,15 @@
                     <table class="analysis-table" style="text-align:center; min-width:880px;">
                         <thead>
                             <tr style="background:#f1f8e9;">
-                                <th style="width:110px; text-align:left; padding-left:14px;">年级 / 班级</th>
+                                <th style="min-width:130px; white-space:nowrap; text-align:left; padding-left:14px;">年级 / 班级</th>
                                 <th style="width:50px;">性别</th>
                                 <th>样本数</th>
                                 <th>50米跑</th>
                                 <th>立定跳远</th>
                                 <th>坐位体前屈</th>
                                 <th>肺活量</th>
-                                <th>耐力跑 (800/1000m)</th>
-                                <th>力量类 (引体/仰卧)</th>
+                                <th>800/1000m</th>
+                                <th>引体/仰卧</th>
                                 <th>体重指数 (BMI)</th>
                             </tr>
                         </thead>
@@ -660,26 +667,26 @@
 
             <!-- 表格 3：单项汇总均分与及格率 -->
             <div class="dashboard-card">
-                <div style="font-size:14px; font-weight:bold; margin-bottom:8px;">📋 各单项平均成绩与及格情况</div>
-                <div style="overflow-x:auto;">
-                    <table class="analysis-table">
-                        <thead>
-                            <tr>
-                                <th>测试项目</th>
-                                <th>有效测试人数</th>
-                                <th>单项平均得分</th>
-                                <th>单项及格率 (≥60分)</th>
-                                <th>单项优良率 (≥80分)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="analysisProjectTbody">
-                            <tr><td colspan="5" style="color:#999;">暂无统计数据</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
+    <div style="font-size:14px; font-weight:bold; margin-bottom:8px;">📋 各单项平均成绩与及格情况 (初高中分项统计)</div>
+    <div style="overflow-x:auto;">
+        <table class="analysis-table">
+            <thead>
+                <tr>
+                    <th style="width:90px;">学段</th>
+                    <th>测试项目</th>
+                    <th>有效测试人数</th>
+                    <th>单项平均得分</th>
+                    <th>单项及格率 (≥60分)</th>
+                    <th>单项优良率 (≥80分)</th>
+                </tr>
+            </thead>
+            <tbody id="analysisProjectTbody">
+                <tr><td colspan="6" style="color:#999;">暂无统计数据</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
         <!-- 视图 3：数据上报专区 -->
 <div id="view-report" class="container-box" style="display:none;">
     <div class="dashboard-card">
@@ -1783,7 +1790,12 @@ function handleTcBmiNavigation(e, currentIdx, subType, totalLength) {
         document.getElementById('calendarModal').style.display = 'flex';
         updateTcLiveScore(className, gender);
     }
-
+function getLevelClass(level) {
+    if (level === '优秀') return 'lvl-yx';
+    if (level === '良好') return 'lvl-yl';
+    if (level === '及格') return 'lvl-bk';
+    return 'lvl-nl';
+}
     function updateTcLiveScore(className, gender) {
         const fields = document.querySelectorAll('.student-score-field');
         let tempScores = {};
@@ -1899,6 +1911,7 @@ let swAutoStopLaps = parseInt(localStorage.getItem('sw_auto_stop_laps') || '2', 
 // 摇一摇传感器开关状态
 let swShakeEnabled = false;
 let lastShakeTime = 0;
+let shakeArmed = true;
 
 function formatTimeByProject(ms, projType) {
     let totalSec = ms / 1000;
@@ -2042,8 +2055,7 @@ function bindStopwatchDragEvents(panel) {
     let startX, startY, initLeft, initTop;
 
     const onStart = (e) => {
-        // 如果点击的是功能小按钮，不触发拖拽
-        if (e.target.id === 'swModeCycleBtn' || e.target.id === 'swShakeToggleBtn' || e.target.innerText.includes('隐藏')) return;
+        if (e.target.id === 'swModeCycleBtn' || e.target.id === 'swShakeToggleBtn' || e.target.innerText.includes('➖')) return;
         isDragging = true;
         const touch = e.touches ? e.touches[0] : e;
         startX = touch.clientX;
@@ -2238,30 +2250,47 @@ function activateShakeListener() {
 
 function handleDeviceMotionShake(e) {
     if (!swRunning || !swShakeEnabled) return;
-    const acc = e.accelerationIncludingGravity || e.acceleration;
-    if (!acc) return;
+    
+    // 优先使用去除了地球重力干扰的纯线性加速度，若设备不支持则用合加速度减去重力基准(9.8)
+    let netAcc = 0;
+    if (e.acceleration && e.acceleration.x !== null) {
+        netAcc = Math.sqrt(
+            (e.acceleration.x || 0) ** 2 + 
+            (e.acceleration.y || 0) ** 2 + 
+            (e.acceleration.z || 0) ** 2
+        );
+    } else if (e.accelerationIncludingGravity) {
+        const raw = Math.sqrt(
+            (e.accelerationIncludingGravity.x || 0) ** 2 + 
+            (e.accelerationIncludingGravity.y || 0) ** 2 + 
+            (e.accelerationIncludingGravity.z || 0) ** 2
+        );
+        netAcc = Math.abs(raw - 9.8);
+    }
 
-    // 计算三轴合加速度（正常静止约为 9.8m/s²，用力甩动手机通常 > 24）
-    const totalAcc = Math.sqrt((acc.x || 0) ** 2 + (acc.y || 0) ** 2 + (acc.z || 0) ** 2);
-    const now = Date.now();
+    const now = performance.now();
 
-    // 阈值 25，且两次摇晃触发间隔至少 450ms（防止一次挥手触发两次）
-    if (totalAcc > 25 && (now - lastShakeTime > 450)) {
+    if (netAcc < 6) {
+        shakeArmed = true;
+    }
+
+    // 触发条件：已复位解锁 + 净加速度 > 13（轻快甩腕即可触发）+ 间隔 > 100ms（支持0.1秒极速连摇两次）
+    if (shakeArmed && netAcc > 13 && (now - lastShakeTime > 100)) {
+        shakeArmed = false; 
         lastShakeTime = now;
-        // 摇晃手机时：如果是 50米且设置了自动停表人数，直接等同于按“计次（满额自动停表）”；否则直接记录当前成绩并停表
+
         if (currentStopwatchProjectType === '50米' && swAutoStopLaps > 0) {
             handleSwRow1Action();
         } else {
             const curStr = formatTimeByProject(swElapsedTime, currentStopwatchProjectType);
-            if (!swLaps.includes(curStr)) swLaps.push(curStr);
+            swLaps.push(curStr);
             stopStopwatchOnly();
-            if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+            if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
             setPendingLapTime(swLaps[0]);
-            showToast(`📳 摇晃停表成功: ${curStr}`);
+            showToast(`📳 摇晃停表: ${curStr}`);
         }
     }
 }
-
 function renderStopwatchLapsList() {
     const wrapper = document.getElementById('swLapsWrapper');
     const container = document.getElementById('swLapsContainer');
@@ -2350,139 +2379,176 @@ function clearPendingTargetHighlight() {
 }
 
     function computeAndRenderAnalysisDashboard() {
-        const selectedScope = document.getElementById('analysisClassSelect') ? document.getElementById('analysisClassSelect').value : 'ALL';
-        let classList = Object.keys(students);
+    const selectedScope = document.getElementById('analysisClassSelect') ? document.getElementById('analysisClassSelect').value : 'ALL';
+    let classList = Object.keys(students);
 
-        if (selectedScope !== 'ALL') {
-            classList = [selectedScope];
-        }
+    if (selectedScope !== 'ALL') {
+        classList = [selectedScope];
+    }
 
-        let totalStudents = 0;
-        let sumTotalScore = 0;
-        let countYX = 0, countYL = 0, countBK = 0, countNL = 0;
+    let totalStudents = 0;
+    let sumTotalScore = 0;
+    let countYX = 0, countYL = 0, countBK = 0, countNL = 0;
 
-        const projectKeys = [
-            { key: "50米", label: "50米跑" },
-            { key: "1000米", label: "1000米跑" },
-            { key: "800米", label: "800米跑" },
-            { key: "引体向上", label: "引体向上" },
-            { key: "仰卧起坐", label: "仰卧起坐" },
-            { key: "立定跳远", label: "立定跳远" },
-            { key: "坐位体前屈", label: "坐位体前屈" },
-            { key: "肺活量", label: "肺活量" },
-            { key: "体重指数(BMI)", label: "体重指数(BMI)" }
-        ];
+    const projectKeys = [
+        { key: "50米", label: "50米跑" },
+        { key: "1000米", label: "1000米跑 (男)" },
+        { key: "800米", label: "800米跑 (女)" },
+        { key: "引体向上", label: "引体向上 (男)" },
+        { key: "仰卧起坐", label: "仰卧起坐 (女)" },
+        { key: "立定跳远", label: "立定跳远" },
+        { key: "坐位体前屈", label: "坐位体前屈" },
+        { key: "肺活量", label: "肺活量" },
+        { key: "体重指数(BMI)", label: "体重指数(BMI)" }
+    ];
 
-        let projectStats = {};
+    // 按 初中 / 高中 分开创建统计桶
+    const initStageBucket = () => {
+        const b = {};
         projectKeys.forEach(p => {
-            projectStats[p.key] = { label: p.label, testedCount: 0, sumScore: 0, passCount: 0, goodCount: 0 };
+            b[p.key] = { label: p.label, testedCount: 0, sumScore: 0, passCount: 0, goodCount: 0 };
         });
+        return b;
+    };
+    let stageProjectStats = {
+        '初中': initStageBucket(),
+        '高中': initStageBucket()
+    };
 
-        classList.forEach(cls => {
-            const list = students[cls] || [];
-            list.forEach(s => {
-                totalStudents++;
-                const sScores = s.scores || {};
-                const fit = calculateFitnessTotalScore(sScores, cls, s.gender || '男', s.gradeId || '');
-                sumTotalScore += fit.score;
+    classList.forEach(cls => {
+        const list = students[cls] || [];
+        list.forEach(s => {
+            totalStudents++;
+            const sScores = s.scores || {};
+            const fit = calculateFitnessTotalScore(sScores, cls, s.gender || '男', s.gradeId || '');
+            sumTotalScore += fit.score;
 
-                if (fit.level === '优秀') countYX++;
-                else if (fit.level === '良好') countYL++;
-                else if (fit.level === '及格') countBK++;
-                else countNL++;
+            if (fit.level === '优秀') countYX++;
+            else if (fit.level === '良好') countYL++;
+            else if (fit.level === '及格') countBK++;
+            else countNL++;
 
-                let currentBmiVal = sScores["体重指数(BMI)"] || sScores["BMI"] || sScores["体重指数"] || '';
-                if (!currentBmiVal && sScores["身高"] && sScores["体重"]) {
-                    let h = parseFloat(sScores["身高"]);
-                    let w = parseFloat(sScores["体重"]);
-                    if (h > 0 && w > 0) {
-                        let hM = h > 3 ? (h / 100) : h;
-                        currentBmiVal = (w / (hM * hM)).toFixed(1);
-                    }
+            // 判定该生属于初中还是高中
+            const gName = s.grade || normalizeGrade(s.gradeId || cls);
+            const stageKey = gName.includes('高') ? '高中' : '初中';
+            const targetBucket = stageProjectStats[stageKey];
+
+            let currentBmiVal = sScores["体重指数(BMI)"] || sScores["BMI"] || sScores["体重指数"] || '';
+            if (!currentBmiVal && sScores["身高"] && sScores["体重"]) {
+                let h = parseFloat(sScores["身高"]);
+                let w = parseFloat(sScores["体重"]);
+                if (h > 0 && w > 0) {
+                    let hM = h > 3 ? (h / 100) : h;
+                    currentBmiVal = (w / (hM * hM)).toFixed(1);
+                }
+            }
+
+            projectKeys.forEach(p => {
+                let val = null;
+                if (p.key === '体重指数(BMI)') {
+                    val = currentBmiVal;
+                } else if (p.key === '1000米') {
+                    if (s.gender === '男') val = sScores['1000米'] || sScores['耐力跑'] || sScores['runL'];
+                } else if (p.key === '800米') {
+                    if (s.gender === '女') val = sScores['800米'] || sScores['耐力跑'] || sScores['runL'];
+                } else if (p.key === '引体向上') {
+                    if (s.gender === '男') val = sScores['引体向上'] || sScores['引体'] || sScores['str'];
+                } else if (p.key === '仰卧起坐') {
+                    if (s.gender === '女') val = sScores['仰卧起坐'] || sScores['仰卧'] || sScores['str'];
+                } else {
+                    val = sScores[p.key] || sScores[p.label];
                 }
 
-                projectKeys.forEach(p => {
-                    let val = null;
-                    if (p.key === '体重指数(BMI)') {
-                        val = currentBmiVal;
-                    } else if (p.key === '1000米') {
-                        if (s.gender === '男') val = sScores['1000米'] || sScores['耐力跑'] || sScores['runL'];
-                    } else if (p.key === '800米') {
-                        if (s.gender === '女') val = sScores['800米'] || sScores['耐力跑'] || sScores['runL'];
-                    } else if (p.key === '引体向上') {
-                        if (s.gender === '男') val = sScores['引体向上'] || sScores['引体'] || sScores['str'];
-                    } else if (p.key === '仰卧起坐') {
-                        if (s.gender === '女') val = sScores['仰卧起坐'] || sScores['仰卧'] || sScores['str'];
-                    } else {
-                        val = sScores[p.key] || sScores[p.label];
+                if (val !== undefined && val !== null && String(val).trim() !== '' && String(val).trim() !== '-') {
+                    let pts = queryStandardScore(p.key, val, cls, s.gender, s.gradeId || '');
+                    if (pts !== null && !isNaN(pts)) {
+                        targetBucket[p.key].testedCount++;
+                        targetBucket[p.key].sumScore += pts;
+                        if (pts >= 60) targetBucket[p.key].passCount++;
+                        if (pts >= 80) targetBucket[p.key].goodCount++;
                     }
-
-                    if (val !== undefined && val !== null && String(val).trim() !== '' && String(val).trim() !== '-') {
-                        let pts = queryStandardScore(p.key, val, cls, s.gender, s.gradeId || '');
-                        if (pts !== null && !isNaN(pts)) {
-                            projectStats[p.key].testedCount++;
-                            projectStats[p.key].sumScore += pts;
-                            if (pts >= 60) projectStats[p.key].passCount++;
-                            if (pts >= 80) projectStats[p.key].goodCount++;
-                        }
-                    }
-                });
+                }
             });
         });
+    });
 
-        const anTotEl = document.getElementById('an-total-students');
-        if (anTotEl) anTotEl.innerText = totalStudents;
-        let avgScore = totalStudents > 0 ? (sumTotalScore / totalStudents).toFixed(1) : "0.0";
-        const anAvgEl = document.getElementById('an-avg-score');
-        if (anAvgEl) anAvgEl.innerText = avgScore;
+    const anTotEl = document.getElementById('an-total-students');
+    if (anTotEl) anTotEl.innerText = totalStudents;
+    let avgScore = totalStudents > 0 ? (sumTotalScore / totalStudents).toFixed(1) : "0.0";
+    const anAvgEl = document.getElementById('an-avg-score');
+    if (anAvgEl) anAvgEl.innerText = avgScore;
 
-        let passRate = totalStudents > 0 ? (((countYX + countYL + countBK) / totalStudents) * 100).toFixed(1) : "0.0";
-        let excelRate = totalStudents > 0 ? (((countYX + countYL) / totalStudents) * 100).toFixed(1) : "0.0";
-        const anPassEl = document.getElementById('an-pass-rate');
-        if (anPassEl) anPassEl.innerText = `${passRate}%`;
-        const anExcEl = document.getElementById('an-excellent-rate');
-        if (anExcEl) anExcEl.innerText = `${excelRate}%`;
+    let passRate = totalStudents > 0 ? (((countYX + countYL + countBK) / totalStudents) * 100).toFixed(1) : "0.0";
+    let excelRate = totalStudents > 0 ? (((countYX + countYL) / totalStudents) * 100).toFixed(1) : "0.0";
+    const anPassEl = document.getElementById('an-pass-rate');
+    if (anPassEl) anPassEl.innerText = `${passRate}%`;
+    const anExcEl = document.getElementById('an-excellent-rate');
+    if (anExcEl) anExcEl.innerText = `${excelRate}%`;
 
-        let pYX = totalStudents > 0 ? ((countYX / totalStudents) * 100).toFixed(1) : "0.0";
-        let pYL = totalStudents > 0 ? ((countYL / totalStudents) * 100).toFixed(1) : "0.0";
-        let pBK = totalStudents > 0 ? ((countBK / totalStudents) * 100).toFixed(1) : "0.0";
-        let pNL = totalStudents > 0 ? ((countNL / totalStudents) * 100).toFixed(1) : "0.0";
+    let pYX = totalStudents > 0 ? ((countYX / totalStudents) * 100).toFixed(1) : "0.0";
+    let pYL = totalStudents > 0 ? ((countYL / totalStudents) * 100).toFixed(1) : "0.0";
+    let pBK = totalStudents > 0 ? ((countBK / totalStudents) * 100).toFixed(1) : "0.0";
+    let pNL = totalStudents > 0 ? ((countNL / totalStudents) * 100).toFixed(1) : "0.0";
 
-        if (document.getElementById('bar-yx')) document.getElementById('bar-yx').style.width = `${pYX}%`;
-        if (document.getElementById('bar-yl')) document.getElementById('bar-yl').style.width = `${pYL}%`;
-        if (document.getElementById('bar-bk')) document.getElementById('bar-bk').style.width = `${pBK}%`;
-        if (document.getElementById('bar-nl')) document.getElementById('bar-nl').style.width = `${pNL}%`;
+    if (document.getElementById('bar-yx')) document.getElementById('bar-yx').style.width = `${pYX}%`;
+    if (document.getElementById('bar-yl')) document.getElementById('bar-yl').style.width = `${pYL}%`;
+    if (document.getElementById('bar-bk')) document.getElementById('bar-bk').style.width = `${pBK}%`;
+    if (document.getElementById('bar-nl')) document.getElementById('bar-nl').style.width = `${pNL}%`;
 
-        if (document.getElementById('tag-yx')) document.getElementById('tag-yx').innerText = `${countYX}人 (${pYX}%)`;
-        if (document.getElementById('tag-yl')) document.getElementById('tag-yl').innerText = `${countYL}人 (${pYL}%)`;
-        if (document.getElementById('tag-bk')) document.getElementById('tag-bk').innerText = `${countBK}人 (${pBK}%)`;
-        if (document.getElementById('tag-nl')) document.getElementById('tag-nl').innerText = `${countNL}人 (${pNL}%)`;
+    if (document.getElementById('tag-yx')) document.getElementById('tag-yx').innerText = `${countYX}人 (${pYX}%)`;
+    if (document.getElementById('tag-yl')) document.getElementById('tag-yl').innerText = `${countYL}人 (${pYL}%)`;
+    if (document.getElementById('tag-bk')) document.getElementById('tag-bk').innerText = `${countBK}人 (${pBK}%)`;
+    if (document.getElementById('tag-nl')) document.getElementById('tag-nl').innerText = `${countNL}人 (${pNL}%)`;
 
-        const tbody = document.getElementById('analysisProjectTbody');
-        if (tbody) {
-            let tableRowsHtml = '';
-            projectKeys.forEach(p => {
-                const stat = projectStats[p.key];
+    // 渲染表格3：初高中分开统计各单项平均成绩与及格情况
+    const tbody = document.getElementById('analysisProjectTbody');
+    if (tbody) {
+        let tableRowsHtml = '';
+        ['初中', '高中'].forEach(stageName => {
+            const bucket = stageProjectStats[stageName];
+            // 检查该学段是否有测试数据
+            const hasStageData = projectKeys.some(p => bucket[p.key].testedCount > 0);
+            if (!hasStageData) return;
+
+            projectKeys.forEach((p, idx) => {
+                const stat = bucket[p.key];
                 let itemAvg = stat.testedCount > 0 ? (stat.sumScore / stat.testedCount).toFixed(1) : "-";
                 let itemPass = stat.testedCount > 0 ? ((stat.passCount / stat.testedCount) * 100).toFixed(1) + '%' : "-";
-                let itemGood = stat.testedCount > 0 ? ((stat.goodCount / stat.testedCount) * 100).toFixed(1) + '%' : "-";
+                let itemGoodVal = stat.testedCount > 0 ? ((stat.goodCount / stat.testedCount) * 100).toFixed(1) : null;
+                let itemGood = itemGoodVal !== null ? itemGoodVal + '%' : "-";
+
+                let goodColor = '#333';
+                if (itemGoodVal !== null) {
+                    if (parseFloat(itemGoodVal) >= 60) goodColor = '#2E7D32';
+                    else if (parseFloat(itemGoodVal) < 20) goodColor = '#D32F2F';
+                }
+
+                const stageTd = idx === 0 
+                    ? `<td rowspan="${projectKeys.length}" style="font-weight:800; font-size:14px; color:${stageName==='初中'?'#1976D2':'#E65100'}; background:${stageName==='初中'?'#F4F9FD':'#FFF8F0'}; vertical-align:middle; border-right:1px solid #e0e0e0;">${stageName}部</td>` 
+                    : '';
 
                 tableRowsHtml += `
-                    <tr>
+                    <tr style="${idx === projectKeys.length - 1 ? 'border-bottom:2px solid #cfd8dc;' : ''}">
+                        ${stageTd}
                         <td style="font-weight:bold; text-align:left; padding-left:12px;">${stat.label}</td>
                         <td>${stat.testedCount}</td>
                         <td style="color:${itemAvg !== '-' && parseFloat(itemAvg) < 60 ? '#D32F2F' : '#2E7D32'}; font-weight:bold;">${itemAvg}</td>
                         <td>${itemPass}</td>
-                        <td>${itemGood}</td>
+                        <td style="color:${goodColor}; font-weight:${goodColor !== '#333' ? 'bold' : 'normal'};">${itemGood}</td>
                     </tr>
                 `;
             });
-            tbody.innerHTML = tableRowsHtml;
-        }
+        });
 
-        renderStageGradeReportTable();
-        renderGradeItemExcellenceTable();
+        if (!tableRowsHtml) {
+            tableRowsHtml = `<tr><td colspan="6" style="color:#999; padding:15px;">暂无统计数据</td></tr>`;
+        }
+        tbody.innerHTML = tableRowsHtml;
     }
+
+    renderStageGradeReportTable();
+    renderGradeItemExcellenceTable();
+}
 
     let stageAccordionState = { 'junior': false, 'senior': false };
     function toggleStageAccordion(stageKey) {
@@ -2714,11 +2780,15 @@ function clearPendingTargetHighlight() {
         });
 
         const fmtCell = (c, t) => {
-            if (!t || t === 0) return '<span style="color:#aaa;">-</span>';
-            const rate = ((c / t) * 100).toFixed(1);
-            const isHigh = parseFloat(rate) >= 50;
-            return `<span style="font-weight:bold; color:${isHigh ? '#2E7D32' : '#333'};">${c}</span> <span style="font-size:11px; color:#666;">(${rate}%)</span>`;
-        };
+    if (!t || t === 0) return '<span style="color:#aaa;">-</span>';
+    const rate = ((c / t) * 100).toFixed(1);
+    const numRate = parseFloat(rate);
+    let color = '#333';
+    if (numRate >= 60) color = '#2E7D32';      // >=60% 绿色
+    else if (numRate < 20) color = '#D32F2F';  // <20% 红色
+
+    return `<span style="font-weight:bold; color:${color};">${c}</span> <span style="font-size:11px; color:${color}; font-weight:${color !== '#333' ? 'bold' : 'normal'};">(${rate}%)</span>`;
+};
 
         let html = '';
         standardGrades.forEach(g => {
@@ -2759,47 +2829,52 @@ function clearPendingTargetHighlight() {
             `;
 
             if (isOpen) {
-                const classNames = Object.keys(gradeData[g].classes).sort((a, b) => {
-                    const numA = (a.match(/\d+/) || [0])[0];
-                    const numB = (b.match(/\d+/) || [0])[0];
-                    return parseInt(numA, 10) - parseInt(numB, 10);
-                });
+                const extractClassNumber = (str) => {
+        const m = String(str).match(/(\d+)\s*班/) || String(str).match(/(\d+)\D*$/);
+        return m ? parseInt(m[1], 10) : 999;
+    };
 
-                classNames.forEach(cName => {
-                    const cM = gradeData[g].classes[cName]['男'];
-                    const cF = gradeData[g].classes[cName]['女'];
+    const classNames = Object.keys(gradeData[g].classes).sort((a, b) => {
+        const numA = extractClassNumber(a);
+        const numB = extractClassNumber(b);
+        if (numA !== numB) return numA - numB;
+        return a.localeCompare(b, 'zh-CN');
+    });
 
-                    html += `
-                        <tr style="background:#fcfcfc; border-top:1px dashed #e0e0e0;">
-                            <td rowspan="2" style="vertical-align:middle; text-align:left; padding-left:28px; font-size:11px; color:#455A64; background:#f5f7f8; border-right:1px solid #eee;">
-                                 ${cName}
-                            </td>
-                            <td style="font-size:12px; color:#1976D2; background:#f9fbfe;">男</td>
-                            <td>${cM.tot}</td>
-                            <td>${fmtCell(cM['50米'].c, cM['50米'].t)}</td>
-                            <td>${fmtCell(cM['立定跳远'].c, cM['立定跳远'].t)}</td>
-                            <td>${fmtCell(cM['坐位体前屈'].c, cM['坐位体前屈'].t)}</td>
-                            <td>${fmtCell(cM['肺活量'].c, cM['肺活量'].t)}</td>
-                            <td>${fmtCell(cM['runL'].c, cM['runL'].t)}</td>
-                            <td>${fmtCell(cM['str'].c, cM['str'].t)}</td>
-                            <td>${fmtCell(cM['bmi'].c, cM['bmi'].t)}</td>
-                        </tr>
-                        <tr style="background:#fcfcfc; border-bottom:1px solid #eceff1;">
-                            <td style="font-size:12px; color:#E91E63; background:#fef9fb;">女</td>
-                            <td>${cF.tot}</td>
-                            <td>${fmtCell(cF['50米'].c,扩大(cF['50米'].t))}</td>
-                            <td>${fmtCell(cF['立定跳远'].c, cF['立定跳远'].t)}</td>
-                            <td>${fmtCell(cF['坐位体前屈'].c, cF['坐位体前屈'].t)}</td>
-                            <td>${fmtCell(cF['肺活量'].c, cF['肺活量'].t)}</td>
-                            <td>${fmtCell(cF['runL'].c, cF['runL'].t)}</td>
-                            <td>${fmtCell(cF['str'].c, cF['str'].t)}</td>
-                            <td>${fmtCell(cF['bmi'].c, cF['bmi'].t)}</td>
-                        </tr>
-                    `;
-                });
-            }
-        });
+    classNames.forEach(cName => {
+        const cM = gradeData[g].classes[cName]['男'];
+        const cF = gradeData[g].classes[cName]['女'];
 
+        html += `
+            <tr style="background:#fcfcfc; border-top:1px dashed #e0e0e0;">
+                <td rowspan="2" style="vertical-align:middle; text-align:left; padding:6px 8px 6px 14px; font-size:13px; font-weight:700; color:#263238; background:#f5f7f8; border-right:1px solid #eee; white-space:nowrap;">
+                    <span style="color:#FF9800; margin-right:3px; font-weight:bold;"></span>${cName}
+                </td>
+                <td style="font-size:12px; color:#1976D2; font-weight:bold; background:#f9fbfe;">男</td>
+                <td style="font-weight:600;">${cM.tot}</td>
+                <td>${fmtCell(cM['50米'].c, cM['50米'].t)}</td>
+                <td>${fmtCell(cM['立定跳远'].c, cM['立定跳远'].t)}</td>
+                <td>${fmtCell(cM['坐位体前屈'].c, cM['坐位体前屈'].t)}</td>
+                <td>${fmtCell(cM['肺活量'].c, cM['肺活量'].t)}</td>
+                <td>${fmtCell(cM['runL'].c, cM['runL'].t)}</td>
+                <td>${fmtCell(cM['str'].c, cM['str'].t)}</td>
+                <td>${fmtCell(cM['bmi'].c, cM['bmi'].t)}</td>
+            </tr>
+            <tr style="background:#fcfcfc; border-bottom:1px solid #eceff1;">
+                <td style="font-size:12px; color:#E91E63; font-weight:bold; background:#fef9fb;">女</td>
+                <td style="font-weight:600;">${cF.tot}</td>
+                <td>${fmtCell(cF['50米'].c, cF['50米'].t)}</td>
+                <td>${fmtCell(cF['立定跳远'].c, cF['立定跳远'].t)}</td>
+                <td>${fmtCell(cF['坐位体前屈'].c, cF['坐位体前屈'].t)}</td>
+                <td>${fmtCell(cF['肺活量'].c, cF['肺活量'].t)}</td>
+                <td>${fmtCell(cF['runL'].c, cF['runL'].t)}</td>
+                <td>${fmtCell(cF['str'].c, cF['str'].t)}</td>
+                <td>${fmtCell(cF['bmi'].c, cF['bmi'].t)}</td>
+            </tr>
+        `;
+    });
+}
+});
         if (!html) {
             html = '<tr><td colspan="10" style="color:#999; padding:15px;">暂无匹配数据</td></tr>';
         }
@@ -2829,16 +2904,16 @@ function clearPendingTargetHighlight() {
         }
 
         let n = 1;
-        const classTagMatch = clsName.match(/(\d+)(?=[班|级])/); 
-        if (classTagMatch) {
-            n = parseInt(classTagMatch[1]);
-        } else {
-            const endNumMatch = clsName.match(/(\d+)$/);
-            if (endNumMatch) {
-                let rawNum = parseInt(endNumMatch[1]);
-                n = rawNum > 100 ? (rawNum % 100) : rawNum;
-            }
-        }
+        const classOnlyMatch = clsName.match(/(\d+)\s*班/);
+if (classOnlyMatch) {
+    n = parseInt(classOnlyMatch[1], 10);
+} else {
+    const endNumMatch = clsName.match(/(\d+)\D*$/);
+    if (endNumMatch) {
+        let rawNum = parseInt(endNumMatch[1], 10);
+        n = rawNum > 100 ? (rawNum % 100) : rawNum;
+    }
+}
 
         const yearMatch = clsName.match(/(\d{4})级/);
         let entryYear = yearMatch ? parseInt(yearMatch[1]) : (gradeNum > 0 ? academicYear - (gradeNum - 1) : academicYear);
@@ -3188,7 +3263,7 @@ function handleReportTitleClick() {
                 let finalClassId = s.classId || classInfo.cId || '';
 
                 if (!finalClassId && finalGradeId) {
-                    const numMatch = cls.match(/(\d+)(?=[班|级])/) || cls.match(/(\d+)$/);
+                    const numMatch = cls.match(/(\d+)\s*班/) || cls.match(/(\d+)\D*$/);
                     const n = numMatch ? parseInt(numMatch[1], 10) : 1;
                     const numStr = String(n > 100 ? (n % 100) : n).padStart(2, '0');
                     const yearMatch = cls.match(/(\d{4})/);
@@ -3764,7 +3839,211 @@ function handleReportTitleClick() {
     function closeModal(e) { 
         if(e.target.id === 'calendarModal') document.getElementById('calendarModal').style.display = 'none'; 
     }
+// ================= 4. 3年历史体测数据保存、切换查看与对比系统 =================
+const YEAR_ARCHIVES_KEY = 'tc_sys_three_year_archives'; // 存放最多3年历史存档
+const LIVE_WORKSPACE_TEMP_KEY = 'tc_sys_live_workspace_temp'; // 浏览历史存档时暂存当前实时数据
+let currentViewingArchiveName = null; // 当前正在查看的历史存档名称（null表示实时工作区）
 
+// 保存本次测试成绩到年度存档库（最多保存3年，支持更新同名年度）
+function saveCurrentToYearArchive() {
+    if (currentViewingArchiveName) {
+        alert(`您当前正在浏览历史存档【${currentViewingArchiveName}】，请先切回“实时工作区”再保存！`);
+        return;
+    }
+    if (Object.keys(students).length === 0) {
+        alert('当前没有任何学生与成绩数据，无法保存！');
+        return;
+    }
+
+    const defaultYearName = `${new Date().getFullYear()}年度体测`;
+    const archiveName = prompt(
+        "🗄️ 请输入本次体测存档名称（建议按年份命名，系统最多保留最近 3 年数据供随时查看和对比）：",
+        defaultYearName
+    );
+    if (!archiveName || !archiveName.trim()) return;
+    const cleanName = archiveName.trim();
+
+    let archives = JSON.parse(localStorage.getItem(YEAR_ARCHIVES_KEY) || '[]');
+
+    // 计算当前快照的核心指标摘要，方便对比列表直接展示
+    let tot = 0, sumScore = 0, pass = 0, good = 0;
+    Object.keys(students).forEach(cls => {
+        (students[cls] || []).forEach(s => {
+            tot++;
+            const fit = calculateFitnessTotalScore(s.scores || {}, cls, s.gender || '男', s.gradeId || '');
+            sumScore += fit.score;
+            if (fit.score >= 60) pass++;
+            if (fit.score >= 80) good++;
+        });
+    });
+
+    const summary = {
+        totalStudents: tot,
+        avgScore: tot > 0 ? (sumScore / tot).toFixed(1) : '0.0',
+        passRate: tot > 0 ? ((pass / tot) * 100).toFixed(1) : '0.0',
+        goodRate: tot > 0 ? ((good / tot) * 100).toFixed(1) : '0.0'
+    };
+
+    const newRecord = {
+        name: cleanName,
+        savedAt: new Date().toLocaleString(),
+        summary: summary,
+        studentsData: JSON.parse(JSON.stringify(students))
+    };
+
+    // 如果已存在同名年度，则覆盖更新；否则追加并保持最多 3 条
+    const existIdx = archives.findIndex(a => a.name === cleanName);
+    if (existIdx > -1) {
+        if (!confirm(`已存在名为【${cleanName}】的存档，是否覆盖更新它？`)) return;
+        archives[existIdx] = newRecord;
+    } else {
+        if (archives.length >= 3) {
+            const oldestName = archives[0].name;
+            if (!confirm(`系统已满 3 年存档上限！继续保存将自动移除最早的【${oldestName}】，是否继续？`)) return;
+            archives.shift();
+        }
+        archives.push(newRecord);
+    }
+
+    localStorage.setItem(YEAR_ARCHIVES_KEY, JSON.stringify(archives));
+    showToast(`✅ 已成功保存【${cleanName}】测试成绩！`);
+    openYearArchiveModal();
+}
+
+// 打开 3 年数据查看与对比弹窗
+function openYearArchiveModal() {
+    const archives = JSON.parse(localStorage.getItem(YEAR_ARCHIVES_KEY) || '[]');
+    const modalBody = document.getElementById('modalCalendarBody');
+
+    let rowsHtml = '';
+    if (archives.length === 0) {
+        rowsHtml = `<tr><td colspan="6" style="padding:20px; color:#999; text-align:center;">暂未保存任何年度数据，请先点击“🗄️ 保存本次测试成绩”</td></tr>`;
+    } else {
+        archives.forEach((arc, idx) => {
+            const isViewing = (currentViewingArchiveName === arc.name);
+            const s = arc.summary || { totalStudents: 0, avgScore: '-', passRate: '-', goodRate: '-' };
+            rowsHtml += `
+                <tr style="background:${isViewing ? '#FFF3E0' : '#fff'}; border-bottom:1px solid #eee;">
+                    <td style="font-weight:bold; color:#0D47A1; text-align:left; padding-left:8px;">
+                        ${arc.name}
+                        ${isViewing ? '<span style="background:#E65100; color:#fff; font-size:10px; padding:1px 4px; border-radius:3px; margin-left:4px;">当前查看中</span>' : ''}
+                        <div style="font-size:10px; color:#999; font-weight:normal;">${arc.savedAt}</div>
+                    </td>
+                    <td>${s.totalStudents}人</td>
+                    <td style="font-weight:bold; color:#E65100;">${s.avgScore}</td>
+                    <td style="color:#2E7D32; font-weight:bold;">${s.passRate}%</td>
+                    <td style="color:#1976D2; font-weight:bold;">${s.goodRate}%</td>
+                    <td>
+                        <div style="display:flex; gap:4px; justify-content:center;">
+                            <button onclick="switchViewToYearArchive(${idx})" style="padding:4px 8px; font-size:11px; background:${isViewing ? '#607D8B' : '#1976D2'};">
+                                ${isViewing ? '正在查看' : '👁️ 调出查看'}
+                            </button>
+                            <button onclick="deleteYearArchive(${idx})" style="padding:4px 6px; font-size:11px; background:#D32F2F;">🗑️</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    const backLiveBtnHtml = currentViewingArchiveName ? `
+        <button onclick="restoreLiveWorkspace()" style="width:100%; background:#2E7D32; margin-top:10px; font-size:14px;">
+            🔙 退回【实时工作区】继续当前体测
+        </button>
+    ` : '';
+
+    modalBody.innerHTML = `
+        <h3 style="margin-top:0; color:#1976D2; text-align:center;">📅 近 3 年体质健康数据对比与调阅</h3>
+        <div style="font-size:12px; color:#666; margin-bottom:10px; text-align:center;">
+            可同屏对比近 3 年全校总均分、及格率与优良率趋势；点击<b>“调出查看”</b>可随时查看当年各班完整明细与分析表。
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="analysis-table" style="font-size:12px;">
+                <thead>
+                    <tr style="background:#f1f8e9;">
+                        <th style="text-align:left; padding-left:8px;">年度存档名称</th>
+                        <th>参测人数</th>
+                        <th>总平均分</th>
+                        <th>及格率</th>
+                        <th>优良率</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+            </table>
+        </div>
+        ${backLiveBtnHtml}
+    `;
+
+    document.getElementById('calendarModal').style.display = 'flex';
+}
+
+// 切换调阅指定年度存档的数据
+function switchViewToYearArchive(idx) {
+    const archives = JSON.parse(localStorage.getItem(YEAR_ARCHIVES_KEY) || '[]');
+    const target = archives[idx];
+    if (!target) return;
+
+    // 如果当前处于实时工作区，先将实时工作区数据保护性暂存起来
+    if (!currentViewingArchiveName) {
+        localStorage.setItem(LIVE_WORKSPACE_TEMP_KEY, JSON.stringify(students));
+    }
+
+    currentViewingArchiveName = target.name;
+    students = JSON.parse(JSON.stringify(target.studentsData));
+
+    updateArchiveBannerUI();
+    initTcClassOptions();
+    populateAnalysisClassFilter();
+    computeAndRenderAnalysisDashboard();
+
+    document.getElementById('calendarModal').style.display = 'none';
+    showToast(`👁️ 已调出【${target.name}】数据，可前往“数据分析”或“数据采集”查看明细`);
+}
+
+// 恢复回到实时工作区
+function restoreLiveWorkspace() {
+    const savedLive = localStorage.getItem(LIVE_WORKSPACE_TEMP_KEY);
+    if (savedLive) {
+        students = JSON.parse(savedLive);
+        localStorage.setItem('tc_standalone_students', JSON.stringify(students));
+        localStorage.removeItem(LIVE_WORKSPACE_TEMP_KEY);
+    }
+    currentViewingArchiveName = null;
+    updateArchiveBannerUI();
+    initTcClassOptions();
+    populateAnalysisClassFilter();
+    computeAndRenderAnalysisDashboard();
+
+    document.getElementById('calendarModal').style.display = 'none';
+    showToast('✅ 已切回【实时工作区】');
+}
+
+// 删除某一条年度存档
+function deleteYearArchive(idx) {
+    let archives = JSON.parse(localStorage.getItem(YEAR_ARCHIVES_KEY) || '[]');
+    if (!archives[idx]) return;
+    const delName = archives[idx].name;
+    if (!confirm(`确定要删除【${delName}】的历史存档吗？`)) return;
+
+    if (currentViewingArchiveName === delName) {
+        restoreLiveWorkspace();
+    }
+    archives.splice(idx, 1);
+    localStorage.setItem(YEAR_ARCHIVES_KEY, JSON.stringify(archives));
+    openYearArchiveModal();
+}
+
+// 更新顶部与卡片的状态栏提示
+function updateArchiveBannerUI() {
+    const banner = document.getElementById('archiveStatusBanner');
+    if (!banner) return;
+    if (currentViewingArchiveName) {
+        banner.innerHTML = `⚠️ 正在调阅历史存档：【${currentViewingArchiveName}】 <a href="javascript:void(0)" onclick="restoreLiveWorkspace()" style="color:#1976D2; text-decoration:underline; margin-left:4px;">[切回实时数据]</a>`;
+    } else {
+        banner.innerHTML = `📌 当前状态：实时工作区`;
+    }
+}
     window.onload = () => {
         initTcClassOptions();
     };
