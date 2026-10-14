@@ -2912,7 +2912,7 @@ function clearPendingTargetHighlight() {
                 }
 
                 const stageTd = idx === 0 
-                    ? `<td rowspan="${projectKeys.length}" style="font-weight:800; font-size:14px; color:${stageName==='初中'?'#1976D2':'#E65100'}; background:${stageName==='初中'?'#F4F9FD':'#FFF8F0'}; vertical-align:middle; border-right:1px solid #e0e0e0;">${stageName}部</td>` 
+                    ? `<td rowspan="${projectKeys.length}" style="font-weight:800; font-size:14px; color:${stageName==='初中'?'#1976D2':'#E65100'}; background:${stageName==='初中'?'#F4F9FD':'#FFF8F0'}; vertical-align:middle; border-right:1px solid #e0e0e0;">${stageName}</td>` 
                     : '';
 
                 tableRowsHtml += `
@@ -3044,7 +3044,7 @@ function clearPendingTargetHighlight() {
 
         let finalTbodyHtml = '';
         if (stageGroups['初中']['总计'].tot > 0) {
-            finalTbodyHtml += buildSectionHtml('初中总体', stageGroups['初中'], true, 'junior');
+            finalTbodyHtml += buildSectionHtml('初中', stageGroups['初中'], true, 'junior');
             if (stageAccordionState['junior']) {
                 ['初一', '初二', '初三'].forEach(g => {
                     if (gradeGroups[g]['总计'].tot > 0) finalTbodyHtml += buildSectionHtml(g, gradeGroups[g]);
@@ -3053,7 +3053,7 @@ function clearPendingTargetHighlight() {
         }
 
         if (stageGroups['高中']['总计'].tot > 0) {
-            finalTbodyHtml += buildSectionHtml('高中总体', stageGroups['高中'], true, 'senior');
+            finalTbodyHtml += buildSectionHtml('高中', stageGroups['高中'], true, 'senior');
             if (stageAccordionState['senior']) {
                 ['高一', '高二', '高三'].forEach(g => {
                     if (gradeGroups[g]['总计'].tot > 0) finalTbodyHtml += buildSectionHtml(g, gradeGroups[g]);
@@ -4477,7 +4477,7 @@ function renderRosterManageTable() {
                 <td style="padding:8px 4px; color:#888; font-size:12px;">${idx + 1}</td>
                 <td style="padding:8px 6px; font-weight:800; color:${isEx ? '#E65100' : '#1565C0'}; text-align:left; cursor:pointer;"
                     onclick="openStudentVisualReport('${cls}', ${idx})" title="点击查看学生个人体质健康数据报告">
-                    <span style="border-bottom:1px dashed #90CAF9; padding-bottom:1px;">📊 ${s.name}</span>
+                    <span style="border-bottom:1px dashed #90CAF9; padding-bottom:1px;"> ${s.name}</span>
                     ${isEx ? '<span style="background:#FF9800; color:#fff; font-size:10px; padding:1px 5px; border-radius:4px; margin-left:4px;">免测</span>' : ''}
                 </td>
                 <td style="padding:8px 4px; color:${s.gender === '男' ? '#1976D2' : '#E91E63'}; font-weight:bold;">${s.gender}</td>
@@ -4485,7 +4485,7 @@ function renderRosterManageTable() {
                 <td style="padding:8px 4px;">
                     <button onclick="toggleStudentExempt('${cls}', ${idx})" 
                             style="padding:5px 10px; font-size:12px; border-radius:15px; background:${isEx ? '#FF9800' : '#E8F5E9'}; color:${isEx ? '#fff' : '#2E7D32'}; border:1px solid ${isEx ? '#F57C00' : '#A5D6A7'};">
-                        ${isEx ? '🚫 已免测 (点击恢复)' : '✅ 正常参测 (设为免测)'}
+                        ${isEx ? '🚫 免测' : '✅ 正常'}
                     </button>
                 </td>
                 <td style="padding:8px 4px;">
@@ -4497,7 +4497,7 @@ function renderRosterManageTable() {
 
     wrap.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:13px;">
-            <span>📋 <b>${cls}</b> 名单：共 <b>${list.length}</b> 人（正常参测 <b>${list.length - exemptCount}</b> 人，免测 <b style="color:#E65100;">${exemptCount}</b> 人）</span>
+            <span>📋 <b>${cls}</b> 共 <b>${list.length}</b> 人（免测 <b style="color:#E65100;">${exemptCount}</b> 人）</span>
             <span style="font-size:11px; color:#888;">提示：标记免测后，数据采集界面将自动跳过该生</span>
         </div>
         <div style="max-height:55vh; overflow-y:auto; border:1px solid #e0e0e0; border-radius:6px;">
