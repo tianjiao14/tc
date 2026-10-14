@@ -223,7 +223,87 @@
         .btn-orange { background-color: #EF6C00; }
         .btn-secondary { background-color: #607D8B; }
         .btn-danger-sys { background-color: #D32F2F; }
+/* 平铺项目按钮网格样式 */
+.project-btn-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.proj-chip-btn {
+    background: #ffffff;
+    color: #BF360C;
+    border: 1.5px solid #FFB74D;
+    padding: 8px 4px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.2;
+}
+/* 项目按钮上的 已测/总数 进度标签 */
+.proj-progress-tag {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-top: 4px;
+    background: #FFF3E0;
+    color: #E65100;
+    border: 1px solid #FFE0B2;
+}
+.proj-Progress-done {
+    background: #E8F5E9 !important;
+    color: #2E7D32 !important;
+    border-color: #A5D6A7 !important;
+}
+.proj-chip-btn.active .proj-progress-tag {
+    background: rgba(0, 0, 0, 0.25);
+    color: #fff;
+    border-color: transparent;
+}
 
+/* 秒表隐藏后的右下角迷你唤出浮球 */
+.sw-mini-fab {
+    position: fixed;
+    right: 16px;
+    bottom: 70px;
+    z-index: 12000;
+    background: #212121;
+    color: #FF9800;
+    border: 2px solid #FF9800;
+    border-radius: 30px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 800;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+}
+.proj-chip-btn span.proj-unit {
+    font-size: 11px;
+    font-weight: normal;
+    color: #888;
+    margin-top: 2px;
+}
+.proj-chip-btn.active {
+    background: #E65100;
+    color: #ffffff;
+    border-color: #BF360C;
+    box-shadow: 0 2px 6px rgba(230, 81, 0, 0.35);
+}
+.proj-chip-btn.active span.proj-unit {
+    color: #FFE0B2;
+}
         .level-badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: bold; color: white; }
         .lvl-yl { background-color: #4CAF50; }
         .lvl-yx { background-color: #00BCD4; }
@@ -442,16 +522,20 @@
             </div>
 
             <div class="dashboard-card" style="background:#FFF3E0; border-color:#FFE0B2;">
-                <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-                    <select id="tcClassSelect" style="flex:1 1 140px; font-weight:bold; color:#E65100; border-color:#FFB74D;" onchange="renderTcProjectList()">
-                        <option value="">-- ① 选班级 --</option>
-                    </select>
-                    <select id="tcProjectSelect" style="flex:1 1 140px; font-weight:bold; color:#E65100; border-color:#FFB74D;" onchange="renderTcBatchEntryTable()">
-                        <option value="">-- ② 选项目 --</option>
-                    </select>
-                </div>
-                <div id="tcBatchWorkspace" style="display:none;"></div>
-            </div>
+    <div style="margin-bottom:10px;">
+        <select id="tcClassSelect" style="width:100%; font-weight:bold; color:#E65100; border-color:#FFB74D; font-size:15px;" onchange="renderTcProjectList()">
+            <option value="">-- ① 选班级 --</option>
+        </select>
+    </div>
+    <!-- 隐藏 input 用于兼容原有逻辑读取当前选中的项目 -->
+    <input type="hidden" id="tcProjectSelect" value="">
+    <!-- 平铺项目按钮容器 -->
+    <div id="tcProjectButtonsWrap" style="display:none;">
+        <div style="font-size:12px; font-weight:bold; color:#BF360C; margin-bottom:6px;">② 点击选择测试项目：</div>
+        <div class="project-btn-grid" id="tcProjectGrid"></div>
+    </div>
+    <div id="tcBatchWorkspace" style="display:none;"></div>
+</div>
 
             <div class="dashboard-card" style="padding: 10px;">
                 <button onclick="exportFitnessReportToExcel()" style="width:100%; font-size:15px; margin:0;">📊 导出【国家体质健康测试总表】 Excel</button>
@@ -1148,85 +1232,272 @@
         };
     }
 
-    // 班级与录入工作区[cite: 8, 9]
-    function initTcClassOptions() {
-        const clsSelect = document.getElementById('tcClassSelect');
-        if (!clsSelect) return;
-        let classNames = Object.keys(students);
+   function getSortedClassGroups() {
+    const classNames = Object.keys(students);
+    const parsed = classNames.map(cls => {
+        const info = getEntryYearInfo(cls);
+        // 识别学段：2为初中，3为高中，兜底按名称判断
+        let stageOrder = 9, stageName = '其他';
+        if (info.stage === '2' || cls.includes('初') || /^[789]/.test(cls)) {
+            stageOrder = 1; stageName = '初中';
+        } else if (info.stage === '3' || cls.includes('高') || cls.includes('职')) {
+            stageOrder = 2; stageName = '高中';
+        }
+        const year = parseInt(info.year, 10) || 9999;
+        const classNum = parseInt(info.num, 10) || 999;
+        return {
+            rawName: cls,
+            stageOrder,
+            stageName,
+            year,
+            classNum,
+            groupLabel: `${stageName} · ${year !== 9999 ? year + '级' : '未分届'}`
+        };
+    });
 
-        let html = '<option value="">-- ① 选班级 --</option>';
-        classNames.forEach(c => {
+    // 排序规则：初中在前高中在后 -> 年度从小到大(2023->2024->2025) -> 班号从小到大(1班->2班...->10班)
+    parsed.sort((a, b) => {
+        if (a.stageOrder !== b.stageOrder) return a.stageOrder - b.stageOrder;
+        if (a.year !== b.year) return a.year - b.year;
+        if (a.classNum !== b.classNum) return a.classNum - b.classNum;
+        return a.rawName.localeCompare(b.rawName, 'zh-CN');
+    });
+
+    // 按【学段 · 年度】分组
+    const groups = {};
+    parsed.forEach(item => {
+        if (!groups[item.groupLabel]) groups[item.groupLabel] = [];
+        groups[item.groupLabel].push(item.rawName);
+    });
+    return groups;
+}
+
+// 1. 替换：初始化采集页班级下拉框（带分组排序）
+function initTcClassOptions() {
+    const clsSelect = document.getElementById('tcClassSelect');
+    if (!clsSelect) return;
+    const groups = getSortedClassGroups();
+
+    let html = '<option value="">-- ① 选班级 --</option>';
+    Object.keys(groups).forEach(groupLabel => {
+        html += `<optgroup label="━━ ${groupLabel} ━━">`;
+        groups[groupLabel].forEach(c => {
             html += `<option value="${c}">${c} (${students[c].length}人)</option>`;
         });
-        clsSelect.innerHTML = html;
-    }
+        html += `</optgroup>`;
+    });
+    clsSelect.innerHTML = html;
+}
 
-    function renderTcProjectList() {
-        const cls = document.getElementById('tcClassSelect').value;
-        const projSelect = document.getElementById('tcProjectSelect');
-        const workspace = document.getElementById('tcBatchWorkspace');
-        if (workspace) workspace.style.display = 'none';
+// 1. 替换：将身高、体重合并为“身高体重(BMI)”
+const TC_PROJECT_ITEMS = [
+    { val: "50米", name: "50米跑", unit: "秒" },
+    { val: "1000米", name: "1000米跑", unit: "男 · 分.秒" },
+    { val: "800米", name: "800米跑", unit: "女 · 分.秒" },
+    { val: "引体向上", name: "引体向上", unit: "男 · 次" },
+    { val: "仰卧起坐", name: "仰卧起坐", unit: "女 · 次" },
+    { val: "立定跳远", name: "立定跳远", unit: "cm" },
+    { val: "坐位体前屈", name: "坐位体前屈", unit: "cm" },
+    { val: "肺活量", name: "肺活量", unit: "ml" },
+    { val: "BMI", name: "身高体重", unit: "BMI (cm/kg)" }
+];
 
-        if (!cls) {
-            projSelect.innerHTML = '<option value="">-- ② 选项目 --</option>';
-            return;
+// 2. 替换：计算某班级各项目的 已测人数 / 应测总人数（支持BMI双项校验）
+function getProjectProgressStats(cls) {
+    const rawList = students[cls] || [];
+    const stats = {};
+    TC_PROJECT_ITEMS.forEach(item => {
+        let targetList = rawList;
+        if (item.val === '引体向上' || item.val === '1000米') {
+            targetList = rawList.filter(s => s.gender === '男');
+        } else if (item.val === '仰卧起坐' || item.val === '800米') {
+            targetList = rawList.filter(s => s.gender === '女');
         }
+        const total = targetList.length;
+        let tested = 0;
+        targetList.forEach(s => {
+            const sc = s.scores || {};
+            if (item.val === 'BMI') {
+                // 身高和体重都有值才算完成测试
+                const h = sc['身高'];
+                const w = sc['体重'];
+                if (h && w && String(h).trim() !== '-' && String(w).trim() !== '-') {
+                    tested++;
+                }
+            } else {
+                const v = sc[item.val];
+                if (v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim() !== '-') {
+                    tested++;
+                }
+            }
+        });
+        stats[item.val] = { tested, total };
+    });
+    return stats;
+}
+// 仅刷新项目卡片上的数字角标（不打断输入框焦点）
+function updateTcProjectProgressBadges() {
+    const cls = document.getElementById('tcClassSelect').value;
+    if (!cls) return;
+    const stats = getProjectProgressStats(cls);
+    TC_PROJECT_ITEMS.forEach(item => {
+        const badgeEl = document.getElementById(`proj-prog-${item.val}`);
+        if (badgeEl && stats[item.val]) {
+            const { tested, total } = stats[item.val];
+            badgeEl.innerText = `${tested}/${total}人`;
+            if (tested > 0 && tested === total) {
+                badgeEl.classList.add('proj-Progress-done');
+            } else {
+                badgeEl.classList.remove('proj-Progress-done');
+            }
+        }
+    });
+}
 
-        projSelect.innerHTML = `
-            <option value="">-- ② 选项目 --</option>
-            <option value="50米">50米跑 (秒)</option>
-            <option value="1000米">1000米跑 (分.秒)</option>
-            <option value="800米">800米跑 (分.秒)</option>
-            <option value="引体向上">引体向上 (次)</option>
-            <option value="仰卧起坐">一分钟仰卧起坐 (次)</option>
-            <option value="立定跳远">立定跳远 (cm)</option>
-            <option value="坐位体前屈">坐位体前屈 (cm)</option>
-            <option value="肺活量">肺活量 (ml)</option>
-            <option value="身高">身高 (cm)</option>
-            <option value="体重">体重 (kg)</option>
-        `;
+// 替换：渲染平铺项目按钮（含 已测/总数 统计）
+function renderTcProjectList() {
+    const cls = document.getElementById('tcClassSelect').value;
+    const wrap = document.getElementById('tcProjectButtonsWrap');
+    const grid = document.getElementById('tcProjectGrid');
+    const hiddenInput = document.getElementById('tcProjectSelect');
+    const workspace = document.getElementById('tcBatchWorkspace');
+
+    if (!cls) {
+        if (wrap) wrap.style.display = 'none';
+        if (workspace) workspace.style.display = 'none';
+        if (hiddenInput) hiddenInput.value = '';
+        removeStopwatchPanel();
+        return;
     }
+
+    wrap.style.display = 'block';
+    const currentProj = hiddenInput.value;
+    const stats = getProjectProgressStats(cls);
+
+    grid.innerHTML = TC_PROJECT_ITEMS.map(item => {
+        const { tested, total } = stats[item.val] || { tested: 0, total: 0 };
+        const isDone = tested > 0 && tested === total;
+        return `
+            <div class="proj-chip-btn ${currentProj === item.val ? 'active' : ''}" 
+                 onclick="selectTcProjectChip('${item.val}')">
+                <span>${item.name}</span>
+                <span class="proj-unit">${item.unit}</span>
+                <span id="proj-prog-${item.val}" class="proj-progress-tag ${isDone ? 'proj-Progress-done' : ''}">
+                    ${tested}/${total}人
+                </span>
+            </div>
+        `;
+    }).join('');
+
+    if (currentProj) {
+        renderTcBatchEntryTable();
+    } else if (workspace) {
+        workspace.style.display = 'none';
+    }
+}
+// 新增：点击平铺项目按钮触发
+function selectTcProjectChip(projVal) {
+    const hiddenInput = document.getElementById('tcProjectSelect');
+    if (hiddenInput) hiddenInput.value = projVal;
+
+    // 切换按钮高亮态
+    const btns = document.querySelectorAll('#tcProjectGrid .proj-chip-btn');
+    btns.forEach(btn => {
+        if (btn.getAttribute('onclick').includes(`'${projVal}'`)) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    renderTcBatchEntryTable();
+}
 
     function renderTcBatchEntryTable() {
-        const cls = document.getElementById('tcClassSelect').value;
-        const proj = document.getElementById('tcProjectSelect').value;
-        const workspace = document.getElementById('tcBatchWorkspace');
-        if (!cls || !proj) {
-            if (workspace) workspace.style.display = 'none';
-            removeStopwatchPanel();
-            return;
-        }
+    const cls = document.getElementById('tcClassSelect').value;
+    const proj = document.getElementById('tcProjectSelect').value;
+    const workspace = document.getElementById('tcBatchWorkspace');
+    if (!cls || !proj) {
+        if (workspace) workspace.style.display = 'none';
+        removeStopwatchPanel();
+        return;
+    }
 
-        const rawList = students[cls] || [];
-        if (rawList.length === 0) {
-            workspace.innerHTML = `<div style="text-align:center; color:#888; padding:15px;">该班暂无学生，请先导入名册。</div>`;
-            workspace.style.display = 'block';
-            removeStopwatchPanel();
-            return;
-        }
+    const rawList = students[cls] || [];
+    if (rawList.length === 0) {
+        workspace.innerHTML = `<div style="text-align:center; color:#888; padding:15px;">该班暂无学生，请先导入名册。</div>`;
+        workspace.style.display = 'block';
+        removeStopwatchPanel();
+        return;
+    }
 
-        let studentList = rawList;
-        if (proj === '引体向上' || proj === '1000米') {
-            studentList = rawList.filter(s => s.gender === '男');
-        } else if (proj === '仰卧起坐' || proj === '800米') {
-            studentList = rawList.filter(s => s.gender === '女');
-        }
+    let studentList = rawList;
+    if (proj === '引体向上' || proj === '1000米') {
+        studentList = rawList.filter(s => s.gender === '男');
+    } else if (proj === '仰卧起坐' || proj === '800米') {
+        studentList = rawList.filter(s => s.gender === '女');
+    }
 
-        if (studentList.length === 0) {
-            workspace.innerHTML = `<div style="text-align:center; color:#888; padding:20px;">该班暂无符合本项目的学生（无${proj === '引体向上' || proj === '1000米' ? '男生' : '女生'}）。</div>`;
-            workspace.style.display = 'block';
-            removeStopwatchPanel();
-            return;
-        }
+    if (studentList.length === 0) {
+        workspace.innerHTML = `<div style="text-align:center; color:#888; padding:20px;">该班暂无符合本项目的学生（无${proj === '引体向上' || proj === '1000米' ? '男生' : '女生'}）。</div>`;
+        workspace.style.display = 'block';
+        removeStopwatchPanel();
+        return;
+    }
 
-        let isRunningProject = (proj === '50米' || proj === '800米' || proj === '1000米');
+    let isRunningProject = (proj === '50米' || proj === '800米' || proj === '1000米');
+    let isBmiProject = (proj === 'BMI');
 
-        let rowsHtml = '';
-        studentList.forEach((s, idx) => {
+    let rowsHtml = '';
+    studentList.forEach((s, idx) => {
+        const sScores = s.scores || {};
+
+        if (isBmiProject) {
+            const curH = sScores['身高'] || '';
+            const curW = sScores['体重'] || '';
+            let bmiVal = '';
+            let bmiPts = 0;
+            if (curH && curW && parseFloat(curH) > 0 && parseFloat(curW) > 0) {
+                let hM = parseFloat(curH) > 3 ? parseFloat(curH) / 100 : parseFloat(curH);
+                bmiVal = (parseFloat(curW) / (hM * hM)).toFixed(1);
+                bmiPts = queryStandardScore("体重指数(BMI)", bmiVal, cls, s.gender, s.gradeId || '') || 0;
+            }
+
+            rowsHtml += `
+                <tr style="border-bottom:1px solid #eee; background:${idx % 2 === 0 ? '#fff' : '#fafafa'};">
+                    <td style="padding:10px 4px; font-size:12px; color:#999; text-align:center;">${idx + 1}</td>
+                    <td style="padding:10px 4px; font-weight:800; font-size:15px; color:#0D47A1; cursor:pointer;" 
+                        class="tc-student-click-target" onclick="handleTcNameClick(${idx})">
+                        ${s.name}
+                        <span style="font-size:11px; display:block; color:${s.gender === '男' ? '#1976D2' : '#E91E63'}; font-weight:normal;">${s.gender}</span>
+                    </td>
+                    <td style="padding:6px 4px;">
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <input type="text" inputmode="decimal" class="tc-batch-input" 
+                                   id="tc-row-${idx}-h" data-idx="${idx}" data-sub="h" data-name="${s.name}" data-gender="${s.gender}" data-proj="身高"
+                                   value="${curH}" placeholder="身高cm"
+                                   style="width:50%; margin:0; padding:8px 4px; font-size:14px; font-weight:bold; border:1px solid #FFB74D; border-radius:6px; text-align:center;"
+                                   oninput="onTcBatchScoreInput(this, '${cls}')"
+                                   onkeydown="handleTcBmiNavigation(event, ${idx}, 'h', ${studentList.length})">
+                            <input type="text" inputmode="decimal" class="tc-batch-input" 
+                                   id="tc-row-${idx}-w" data-idx="${idx}" data-sub="w" data-name="${s.name}" data-gender="${s.gender}" data-proj="体重"
+                                   value="${curW}" placeholder="体重kg"
+                                   style="width:50%; margin:0; padding:8px 4px; font-size:14px; font-weight:bold; border:1px solid #FFB74D; border-radius:6px; text-align:center;"
+                                   oninput="onTcBatchScoreInput(this, '${cls}')"
+                                   onkeydown="handleTcBmiNavigation(event, ${idx}, 'w', ${studentList.length})">
+                        </div>
+                    </td>
+                    <td style="padding:10px 4px; text-align:center;">
+                        <span id="tc-badge-${idx}" class="live-score-badge ${bmiPts > 0 ? 'has-val' : ''}" style="width:auto; min-width:58px; display:inline-block; font-size:11px; line-height:1.2;">
+                            ${bmiVal ? `BMI:${bmiVal}<br>${bmiPts}分` : '-'}
+                        </span>
+                    </td>
+                </tr>
+            `;
+        } else {
             const actualProjName = proj;
-            const sScores = s.scores || {};
             const curVal = sScores[actualProjName] || '';
-            let initialPts = (actualProjName === '身高' || actualProjName === '体重') ? '' : (queryStandardScore(actualProjName, curVal, cls, s.gender, s.gradeId || '') || 0);
+            let initialPts = queryStandardScore(actualProjName, curVal, cls, s.gender, s.gradeId || '') || 0;
 
             rowsHtml += `
                 <tr style="border-bottom:1px solid #eee; background:${idx % 2 === 0 ? '#fff' : '#fafafa'};">
@@ -1246,83 +1517,134 @@
                     </td>
                     <td style="padding:10px 4px; text-align:center;">
                         <span id="tc-badge-${idx}" class="live-score-badge ${initialPts > 0 ? 'has-val' : ''}" style="width:auto; min-width:44px; display:inline-block; font-size:12px;">
-                            ${actualProjName === '身高' || actualProjName === '体重' ? '-' : initialPts + '分'}
+                            ${initialPts}分
                         </span>
                     </td>
                 </tr>
             `;
-        });
-
-        workspace.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <div style="font-size:13px; font-weight:bold; color:#BF360C;">
-                    ⚡ 当前采集：<span style="font-size:15px; color:#E65100;">${proj}</span>
-                    <span style="font-size:12px; color:#666; margin-left:4px;">(共 ${studentList.length} 人)</span>
-                </div>
-                <button onclick="saveAndExitTcProject()" style="background:#E65100; margin:0; width:auto; padding:6px 14px; font-size:13px;">💾 完成保存</button>
-            </div>
-            <div style="max-height:52vh; overflow-y:auto; border:1px solid #FFE0B2; border-radius:8px; background:#fff; -webkit-overflow-scrolling:touch;">
-                <table style="width:100%; border-collapse:collapse;">
-                    <thead style="position:sticky; top:0; background:#FFE0B2; color:#BF360C; font-size:12px; z-index:2;">
-                        <tr>
-                            <th style="padding:6px 2px; width:28px; text-align:center;">#</th>
-                            <th style="padding:6px 4px; text-align:left;">姓名 (点名填录成绩)</th>
-                            <th style="padding:6px; width:44%; text-align:center;">成绩输入</th>
-                            <th style="padding:6px 2px; width:52px; text-align:center;">得分</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rowsHtml}</tbody>
-                </table>
-            </div>
-            <button onclick="saveAndExitTcProject()" style="background:#2E7D32; font-size:15px; font-weight:bold; margin-top:10px; padding:10px; width:100%;">💾 保存当前成绩并选下一项</button>
-        `;
-        workspace.style.display = 'block';
-
-        if (proj === '50米') {
-            renderStopwatchFloatPanel('50米');
-        } else if (proj === '800米' || proj === '1000米') {
-            renderStopwatchFloatPanel('runL');
-        } else {
-            removeStopwatchPanel();
         }
+    });
+
+    workspace.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="font-size:13px; font-weight:bold; color:#BF360C;">
+                ⚡ 当前采集：<span style="font-size:15px; color:#E65100;">${isBmiProject ? '身高体重 (BMI)' : proj}</span>
+                <span style="font-size:12px; color:#666; margin-left:4px;">(共 ${studentList.length} 人)</span>
+            </div>
+            <button onclick="saveAndExitTcProject()" style="background:#E65100; margin:0; width:auto; padding:6px 14px; font-size:13px;">💾 完成保存</button>
+        </div>
+        <div style="max-height:52vh; overflow-y:auto; border:1px solid #FFE0B2; border-radius:8px; background:#fff; -webkit-overflow-scrolling:touch;">
+            <table style="width:100%; border-collapse:collapse;">
+                <thead style="position:sticky; top:0; background:#FFE0B2; color:#BF360C; font-size:12px; z-index:2;">
+                    <tr>
+                        <th style="padding:6px 2px; width:28px; text-align:center;">#</th>
+                        <th style="padding:6px 4px; text-align:left;">姓名 (点名填录成绩)</th>
+                        <th style="padding:6px; width:${isBmiProject ? '52%' : '44%'}; text-align:center;">${isBmiProject ? '身高(cm) / 体重(kg)' : '成绩输入'}</th>
+                        <th style="padding:6px 2px; width:60px; text-align:center;">得分</th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+            </table>
+        </div>
+        <button onclick="saveAndExitTcProject()" style="background:#2E7D32; font-size:15px; font-weight:bold; margin-top:10px; padding:10px; width:100%;">💾 保存当前成绩并选下一项</button>
+    `;
+    workspace.style.display = 'block';
+
+    if (proj === '50米') {
+        renderStopwatchFloatPanel('50米');
+    } else if (proj === '800米' || proj === '1000米') {
+        renderStopwatchFloatPanel('runL');
+    } else {
+        removeStopwatchPanel();
     }
+}
 
     function onTcBatchScoreInput(inputElem, className) {
-        const idx = inputElem.getAttribute('data-idx');
-        const gender = inputElem.getAttribute('data-gender');
-        const proj = inputElem.getAttribute('data-proj');
-        const sName = inputElem.getAttribute('data-name');
-        const val = inputElem.value.trim();
-        const badge = document.getElementById(`tc-badge-${idx}`);
+    const idx = inputElem.getAttribute('data-idx');
+    const gender = inputElem.getAttribute('data-gender');
+    const proj = inputElem.getAttribute('data-proj');
+    const sName = inputElem.getAttribute('data-name');
+    const val = inputElem.value.trim();
+    const badge = document.getElementById(`tc-badge-${idx}`);
 
-        let currentGradeId = '';
-        if (students[className]) {
-            const sObj = students[className].find(s => s.name === sName);
-            if (sObj) {
-                if (!sObj.scores) sObj.scores = {};
-                if (val === '') {
-                    delete sObj.scores[proj];
-                } else {
-                    sObj.scores[proj] = val;
-                }
-                currentGradeId = sObj.gradeId || '';
-                localStorage.setItem('tc_standalone_students', JSON.stringify(students));
+    let currentGradeId = '';
+    let sObj = null;
+    if (students[className]) {
+        sObj = students[className].find(s => s.name === sName);
+        if (sObj) {
+            if (!sObj.scores) sObj.scores = {};
+            if (val === '') {
+                delete sObj.scores[proj];
+            } else {
+                sObj.scores[proj] = val;
             }
-        }
+            currentGradeId = sObj.gradeId || '';
 
-        if (proj === '身高' || proj === '体重') {
-            if (badge) badge.innerText = '-';
-            return;
-        }
-
-        const calculated = queryStandardScore(proj, val, className, gender, currentGradeId);
-        let pts = calculated !== null ? calculated : 0;
-        if (badge) {
-            badge.innerText = pts + "分";
-            if (pts > 0) badge.classList.add('has-val');
-            else badge.classList.remove('has-val');
+            // 如果是身高或体重，自动联动计算并存储 BMI
+            if (proj === '身高' || proj === '体重') {
+                const h = parseFloat(sObj.scores['身高']);
+                const w = parseFloat(sObj.scores['体重']);
+                if (!isNaN(h) && !isNaN(w) && h > 0 && w > 0) {
+                    let hM = h > 3 ? h / 100 : h;
+                    sObj.scores["体重指数(BMI)"] = (w / (hM * hM)).toFixed(1);
+                } else {
+                    delete sObj.scores["体重指数(BMI)"];
+                }
+            }
+            localStorage.setItem('tc_standalone_students', JSON.stringify(students));
+            updateTcProjectProgressBadges();
         }
     }
+
+    // 实时刷新右侧 BMI 数值与得分徽章
+    if (proj === '身高' || proj === '体重') {
+        if (badge && sObj) {
+            const bmiVal = sObj.scores["体重指数(BMI)"];
+            if (bmiVal) {
+                const bmiPts = queryStandardScore("体重指数(BMI)", bmiVal, className, gender, currentGradeId) || 0;
+                badge.innerHTML = `BMI:${bmiVal}<br>${bmiPts}分`;
+                if (bmiPts > 0) badge.classList.add('has-val');
+                else badge.classList.remove('has-val');
+            } else {
+                badge.innerText = '-';
+                badge.classList.remove('has-val');
+            }
+        }
+        return;
+    }
+
+    const calculated = queryStandardScore(proj, val, className, gender, currentGradeId);
+    let pts = calculated !== null ? calculated : 0;
+    if (badge) {
+        badge.innerText = pts + "分";
+        if (pts > 0) badge.classList.add('has-val');
+        else badge.classList.remove('has-val');
+    }
+}
+
+// 新增：身高体重双输入框的键盘回车/方向键丝滑跳转
+function handleTcBmiNavigation(e, currentIdx, subType, totalLength) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        if (subType === 'h') {
+            // 输完身高按回车 -> 跳到同一行的体重
+            const wInput = document.getElementById(`tc-row-${currentIdx}-w`);
+            if (wInput) { wInput.focus(); wInput.select(); }
+        } else {
+            // 输完体重按回车 -> 跳到下一名学生的身高
+            const nextH = document.getElementById(`tc-row-${currentIdx + 1}-h`);
+            if (nextH) { nextH.focus(); nextH.select(); }
+        }
+    } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const nextInput = document.getElementById(`tc-row-${currentIdx + 1}-${subType}`);
+        if (nextInput) { nextInput.focus(); nextInput.select(); }
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prevInput = document.getElementById(`tc-row-${currentIdx - 1}-${subType}`);
+        if (prevInput) { prevInput.focus(); prevInput.select(); }
+    }
+}
 
     function handleTcInputNavigation(e, currentIdx, totalLength) {
         if (e.key === 'Enter' || e.key === 'ArrowDown') {
@@ -1343,48 +1665,49 @@
     }
 
     function saveAndExitTcProject() {
-        const cls = document.getElementById('tcClassSelect').value;
-        if (!cls) return;
+    const cls = document.getElementById('tcClassSelect').value;
+    if (!cls) return;
 
-        const inputs = document.querySelectorAll('.tc-batch-input');
-        let updatedCount = 0;
+    const inputs = document.querySelectorAll('.tc-batch-input');
+    let updatedCount = 0;
 
-        inputs.forEach(inp => {
-            const sName = inp.getAttribute('data-name');
-            const proj = inp.getAttribute('data-proj');
-            const val = inp.value.trim();
+    inputs.forEach(inp => {
+        const sName = inp.getAttribute('data-name');
+        const proj = inp.getAttribute('data-proj');
+        const val = inp.value.trim();
 
-            const sObj = students[cls].find(s => s.name === sName);
-            if (sObj) {
-                if (!sObj.scores) sObj.scores = {};
-                if (val === '') {
-                    delete sObj.scores[proj];
-                } else {
-                    sObj.scores[proj] = val;
-                    updatedCount++;
-                }
+        const sObj = students[cls].find(s => s.name === sName);
+        if (sObj) {
+            if (!sObj.scores) sObj.scores = {};
+            if (val === '') {
+                delete sObj.scores[proj];
+            } else {
+                sObj.scores[proj] = val;
+                updatedCount++;
+            }
 
-                if (proj === '身高' || proj === '体重') {
-                    const h = parseFloat(sObj.scores['身高']);
-                    const w = parseFloat(sObj.scores['体重']);
-                    if (!isNaN(h) && !isNaN(w) && h > 0) {
-                        let hM = h > 3 ? h / 100 : h;
-                        sObj.scores["体重指数(BMI)"] = (w / (hM * hM)).toFixed(1);
-                    }
+            if (proj === '身高' || proj === '体重') {
+                const h = parseFloat(sObj.scores['身高']);
+                const w = parseFloat(sObj.scores['体重']);
+                if (!isNaN(h) && !isNaN(w) && h > 0) {
+                    let hM = h > 3 ? h / 100 : h;
+                    sObj.scores["体重指数(BMI)"] = (w / (hM * hM)).toFixed(1);
                 }
             }
-        });
+        }
+    });
 
-        localStorage.setItem('tc_standalone_students', JSON.stringify(students));
-        showToast(`✅ 已保存本项成绩 (${updatedCount}人次)`);
+    localStorage.setItem('tc_standalone_students', JSON.stringify(students));
+    showToast(`✅ 已保存本项成绩 (${updatedCount}人次)`);
 
-        const projSelect = document.getElementById('tcProjectSelect');
-        if (projSelect) projSelect.value = '';
-        const workspace = document.getElementById('tcBatchWorkspace');
-        if (workspace) workspace.style.display = 'none';
-        removeStopwatchPanel();
-        if (projSelect) projSelect.focus();
-    }
+    const projSelect = document.getElementById('tcProjectSelect');
+    if (projSelect) projSelect.value = '';
+    document.querySelectorAll('#tcProjectGrid .proj-chip-btn').forEach(b => b.classList.remove('active'));
+    
+    const workspace = document.getElementById('tcBatchWorkspace');
+    if (workspace) workspace.style.display = 'none';
+    removeStopwatchPanel();
+}
 
     function openScoreModal(className, studentName) {
         const studentObj = students[className].find(s => s.name === studentName);
@@ -1557,306 +1880,474 @@
         document.getElementById('calendarModal').style.display = 'none';
         showToast(`✅ 已更新【${studentName}】的体测档案`);
         renderTcBatchEntryTable();
+        updateTcProjectProgressBadges();
     }
 
-    // 毫秒悬浮秒表引擎[cite: 1, 8]
-    let swTimer = null;
-    let swStartTime = 0;
-    let swElapsedTime = 0;
-    let swRunning = false;
-    let swLaps = [];
-    let selectedPendingLapTime = null;
-    let swPanelPos = JSON.parse(localStorage.getItem('sw_tc_pos')) || { right: 15, bottom: 60 };
-    let currentStopwatchProjectType = '50米';
+    // ================= 升级版毫秒悬浮秒表引擎 =================
+let swTimer = null;
+let swStartTime = 0;
+let swElapsedTime = 0;
+let swRunning = false;
+let swLaps = [];
+let swLastLapMs = 0; // 记录上次计次的毫秒数，防重复停表计次
+let selectedPendingLapTime = null;
+let swPanelPos = JSON.parse(localStorage.getItem('sw_tc_pos')) || { right: 15, bottom: 60 };
+let currentStopwatchProjectType = '50米';
 
-    function formatTimeByProject(ms, projType) {
-        let totalSec = ms / 1000;
-        if (projType === 'runL') {
-            let m = Math.floor(totalSec / 60);
-            let s = Math.floor(totalSec % 60);
-            let cs = Math.floor((ms % 1000) / 10);
-            let sStr = s < 10 ? '0' + s : String(s);
-            let csStr = cs < 10 ? '0' + cs : String(cs);
-            return `${m}.${sStr}.${csStr}`;
-        } else {
-            return totalSec.toFixed(2);
-        }
-    }
+// 50米跑道人数自动停表配置（默认 2人一组：按2次计次自动停表；可切换 2 / 4 / 0不限）
+let swAutoStopLaps = parseInt(localStorage.getItem('sw_auto_stop_laps') || '2', 10);
+// 摇一摇传感器开关状态
+let swShakeEnabled = false;
+let lastShakeTime = 0;
 
-    function formatDisplayClock(ms) {
-        let totalSec = Math.floor(ms / 1000);
+function formatTimeByProject(ms, projType) {
+    let totalSec = ms / 1000;
+    if (projType === 'runL') {
         let m = Math.floor(totalSec / 60);
-        let s = totalSec % 60;
-        let c = Math.floor((ms % 1000) / 10);
-        let pad = (n) => n < 10 ? '0' + n : n;
-        if (m > 0) {
-            return `${m}:${pad(s)}.${pad(c)}`;
-        }
-        return `${(ms / 1000).toFixed(2)}`;
+        let s = Math.floor(totalSec % 60);
+        let cs = Math.floor((ms % 1000) / 10);
+        let sStr = s < 10 ? '0' + s : String(s);
+        let csStr = cs < 10 ? '0' + cs : String(cs);
+        return `${m}.${sStr}.${csStr}`;
+    } else {
+        return totalSec.toFixed(2);
+    }
+}
+
+function formatDisplayClock(ms) {
+    let totalSec = Math.floor(ms / 1000);
+    let m = Math.floor(totalSec / 60);
+    let s = totalSec % 60;
+    let c = Math.floor((ms % 1000) / 10);
+    let pad = (n) => n < 10 ? '0' + n : n;
+    if (m > 0) {
+        return `${m}:${pad(s)}.${pad(c)}`;
+    }
+    return `${(ms / 1000).toFixed(2)}`;
+}
+
+function removeStopwatchPanel() {
+    if (swTimer) { clearInterval(swTimer); swTimer = null; }
+    swRunning = false;
+    swElapsedTime = 0;
+    swLaps = [];
+    swLastLapMs = 0;
+    selectedPendingLapTime = null;
+    clearPendingTargetHighlight();
+    const old = document.getElementById('swFloatPanel');
+    if (old) old.remove();
+    const oldFab = document.getElementById('swMiniFab');
+    if (oldFab) oldFab.remove();
+}
+
+// 切换秒表隐藏与唤出
+function toggleStopwatchVisibility(hide) {
+    const panel = document.getElementById('swFloatPanel');
+    const fab = document.getElementById('swMiniFab');
+    if (!panel || !fab) return;
+    if (hide) {
+        panel.style.display = 'none';
+        fab.style.display = 'inline-flex';
+    } else {
+        panel.style.display = 'flex';
+        fab.style.display = 'none';
+    }
+}
+
+// 切换 50米 跑道自动停表人数 (2人 -> 3人 -> 4人 -> 不限)
+function cycleAutoStopMode() {
+    const modes = [2, 3, 4, 0];
+    const nextIdx = (modes.indexOf(swAutoStopLaps) + 1) % modes.length;
+    swAutoStopLaps = modes[nextIdx];
+    localStorage.setItem('sw_auto_stop_laps', String(swAutoStopLaps));
+    const btn = document.getElementById('swModeCycleBtn');
+    if (btn) {
+        btn.innerText = swAutoStopLaps > 0 ? `${swAutoStopLaps}人停` : '不限道';
+    }
+    showToast(swAutoStopLaps > 0 
+        ? `⚡ 50米已设为【${swAutoStopLaps}人冲线自动停表】(连按${swAutoStopLaps}次计次即停)` 
+        : `⚡ 已设为【不限人数】手动停表模式`);
+}
+
+function renderStopwatchFloatPanel(projType = '50米') {
+    currentStopwatchProjectType = projType;
+    removeStopwatchPanel();
+
+    // 1. 创建右下角迷你唤出浮球
+    const fab = document.createElement('div');
+    fab.id = 'swMiniFab';
+    fab.className = 'sw-mini-fab';
+    fab.onclick = () => toggleStopwatchVisibility(false);
+    fab.innerHTML = `<span>⏱️</span> <span id="swMiniFabText">唤出秒表</span>`;
+    document.body.appendChild(fab);
+
+    // 2. 创建主秒表面板
+    const panel = document.createElement('div');
+    panel.id = 'swFloatPanel';
+    panel.className = 'stopwatch-float-panel';
+    
+    const screenW = window.innerWidth || document.documentElement.clientWidth;
+    const screenH = window.innerHeight || document.documentElement.clientHeight;
+
+    if (swPanelPos.left !== undefined && swPanelPos.top !== undefined && 
+        swPanelPos.left >= 0 && swPanelPos.left < (screenW - 140) &&
+        swPanelPos.top >= 0 && swPanelPos.top < (screenH - 140)) {
+        panel.style.left = swPanelPos.left + 'px';
+        panel.style.top = swPanelPos.top + 'px';
+        panel.style.right = 'auto';
+        panel.style.bottom = 'auto';
+    } else {
+        panel.style.right = '15px';
+        panel.style.bottom = '60px';
+        panel.style.left = 'auto';
+        panel.style.top = 'auto';
     }
 
-    function removeStopwatchPanel() {
-        if (swTimer) { clearInterval(swTimer); swTimer = null; }
-        swRunning = false;
+    const projTitle = projType === 'runL' ? '耐力跑' : '50m';
+    const autoStopBtnHtml = projType === '50米' 
+        ? `<span id="swModeCycleBtn" onclick="cycleAutoStopMode()" title="点击切换几人冲线自动停表" style="background:#E65100; color:#fff; padding:2px 6px; border-radius:4px; font-size:11px; cursor:pointer;">${swAutoStopLaps > 0 ? swAutoStopLaps + '人停' : '不限道'}</span>`
+        : '';
+
+    panel.innerHTML = `
+        <div class="sw-drag-handle" id="swDragBar">
+            <div style="display:flex; align-items:center; gap:5px;">
+                <span style="font-size:12px; color:#FFB74D; font-weight:bold;">⚡${projTitle}</span>
+                ${autoStopBtnHtml}
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <span id="swShakeToggleBtn" onclick="enableShakeToStop()" title="开启/关闭晃动手机停表" style="font-size:11px; padding:2px 5px; border-radius:4px; cursor:pointer; background:${swShakeEnabled ? '#2E7D32' : 'rgba(255,255,255,0.15)'}; color:#fff;">摇停</span>
+                <span onclick="toggleStopwatchVisibility(true)" title="最小化隐藏秒表" style="font-size:12px; color:#FF9800; font-weight:bold; cursor:pointer; padding:0 4px;">➖</span>
+            </div>
+        </div>
+        <div class="sw-timer-display" id="swTimeDisplay">0.00</div>
+        
+        <button id="swRow1Btn" class="sw-btn-row btn-start-state" onclick="handleSwRow1Action()">▶ 开始</button>
+        <button id="swRow2Btn" class="sw-btn-row btn-reset-state" onclick="handleSwRow2Action()">🔄 重置</button>
+        
+        <div id="swLapsWrapper" style="display:none; margin-top:2px;">
+            <div style="font-size:11px; color:#aaa; margin-bottom:2px; display:flex; justify-content:space-between;">
+                <span>流水(点名填录):</span>
+                <span id="swLapCountTag" style="color:#FFB74D;">0次</span>
+            </div>
+            <div class="sw-laps-container" id="swLapsContainer"></div>
+        </div>
+    `;
+    document.body.appendChild(panel);
+    bindStopwatchDragEvents(panel);
+}
+
+function bindStopwatchDragEvents(panel) {
+    const handle = panel.querySelector('#swDragBar');
+    let isDragging = false;
+    let startX, startY, initLeft, initTop;
+
+    const onStart = (e) => {
+        // 如果点击的是功能小按钮，不触发拖拽
+        if (e.target.id === 'swModeCycleBtn' || e.target.id === 'swShakeToggleBtn' || e.target.innerText.includes('隐藏')) return;
+        isDragging = true;
+        const touch = e.touches ? e.touches[0] : e;
+        startX = touch.clientX;
+        startY = touch.clientY;
+        const rect = panel.getBoundingClientRect();
+        initLeft = rect.left;
+        initTop = rect.top;
+        panel.style.right = 'auto';
+        panel.style.bottom = 'auto';
+        panel.style.left = initLeft + 'px';
+        panel.style.top = initTop + 'px';
+    };
+
+    const onMove = (e) => {
+        if (!isDragging) return;
+        const touch = e.touches ? e.touches[0] : e;
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+        let newX = Math.max(5, Math.min(initLeft + dx, window.innerWidth - panel.offsetWidth - 5));
+        let newY = Math.max(5, Math.min(initTop + dy, window.innerHeight - panel.offsetHeight - 5));
+        panel.style.left = newX + 'px';
+        panel.style.top = newY + 'px';
+    };
+
+    const onEnd = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        swPanelPos = { left: parseInt(panel.style.left, 10), top: parseInt(panel.style.top, 10) };
+        localStorage.setItem('sw_tc_pos', JSON.stringify(swPanelPos));
+    };
+
+    handle.addEventListener('touchstart', onStart, { passive: true });
+    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('touchend', onEnd);
+    handle.addEventListener('mousedown', onStart);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
+}
+
+function updateStopwatchButtonsUI() {
+    const btn1 = document.getElementById('swRow1Btn');
+    const btn2 = document.getElementById('swRow2Btn');
+    if (!btn1 || !btn2) return;
+
+    if (swRunning) {
+        if (currentStopwatchProjectType === '50米' && swAutoStopLaps > 0) {
+            const nextRank = swLaps.length + 1;
+            btn1.innerText = nextRank >= swAutoStopLaps ? `⏱ 计第${nextRank}名并停表` : `⏱ 计第${nextRank}名`;
+        } else {
+            btn1.innerText = "⏱ 计次";
+        }
+        btn1.className = "sw-btn-row btn-lap-state";
+
+        btn2.innerText = "⏹ 停止";
+        btn2.className = "sw-btn-row btn-stop-state";
+    } else {
+        btn1.innerText = "▶ 开始";
+        btn1.className = "sw-btn-row btn-start-state";
+
+        btn2.innerText = "🔄 重置";
+        btn2.className = "sw-btn-row btn-reset-state";
+    }
+}
+
+// 第一行按钮：开始 / 计次（支持达到人数自动停表）
+function handleSwRow1Action() {
+    if (!swRunning) {
+        swRunning = true;
+        swStartTime = performance.now() - swElapsedTime;
+        swTimer = setInterval(() => {
+            swElapsedTime = performance.now() - swStartTime;
+            const clockStr = formatDisplayClock(swElapsedTime);
+            const disp = document.getElementById('swTimeDisplay');
+            if (disp) disp.innerText = clockStr;
+            const fabTxt = document.getElementById('swMiniFabText');
+            if (fabTxt) fabTxt.innerText = clockStr;
+        }, 25);
+        updateStopwatchButtonsUI();
+        if (navigator.vibrate) navigator.vibrate(40);
+        showToast('▶ 秒表已起动');
+    } else {
+        const currentFormattedStr = formatTimeByProject(swElapsedTime, currentStopwatchProjectType);
+        swLaps.push(currentFormattedStr);
+        swLastLapMs = swElapsedTime;
+        if (navigator.vibrate) navigator.vibrate(35);
+
+        // 判断 50米 是否达到了设定的自动停表人数（例如连按第2次计次直接停表）
+        if (currentStopwatchProjectType === '50米' && swAutoStopLaps > 0 && swLaps.length >= swAutoStopLaps) {
+            stopStopwatchOnly();
+            setPendingLapTime(swLaps[0]);
+            showToast(`🏁 已满${swAutoStopLaps}人自动停表！请点第1名姓名 (${swLaps[0]})`);
+            return;
+        }
+
+        if (!selectedPendingLapTime) {
+            setPendingLapTime(swLaps[0]);
+        } else {
+            renderStopwatchLapsList();
+        }
+        updateStopwatchButtonsUI();
+        showToast(`⏱ 已计第${swLaps.length}名: ${currentFormattedStr}`);
+    }
+}
+
+// 纯停表内部函数（不额外塞入多余成绩）
+function stopStopwatchOnly() {
+    if (swTimer) {
+        clearInterval(swTimer);
+        swTimer = null;
+    }
+    swRunning = false;
+    updateStopwatchButtonsUI();
+    const fabTxt = document.getElementById('swMiniFabText');
+    if (fabTxt) fabTxt.innerText = '唤出秒表';
+}
+
+// 第二行按钮：停止 / 重置
+function handleSwRow2Action() {
+    if (swRunning) {
+        const stopMs = swElapsedTime;
+        stopStopwatchOnly();
+        if (navigator.vibrate) navigator.vibrate([50, 40, 50]);
+
+        const finalFormattedStr = formatTimeByProject(stopMs, currentStopwatchProjectType);
+        
+        // 核心防误触逻辑：
+        // 1. 如果一次计次都没按过（单人跑直接按停止），则把停止时间作为第1名成绩
+        // 2. 如果之前已经按过计次，只有当距离上一次计次超过 1.2 秒，且不是在已满额的情况下，才询问或记录；
+        //    解决“按了2次计次再点停止，结果多出第3个成绩”的问题！
+        if (swLaps.length === 0 && parseFloat(finalFormattedStr) > 0) {
+            swLaps.push(finalFormattedStr);
+        }
+        
+        if (swLaps.length > 0) {
+            setPendingLapTime(swLaps[0]);
+            showToast(`🏁 计时结束！共${swLaps.length}人，请点第1名 (${swLaps[0]})`);
+        } else {
+            showToast(`⏹ 秒表已停止`);
+        }
+    } else {
         swElapsedTime = 0;
         swLaps = [];
+        swLastLapMs = 0;
         selectedPendingLapTime = null;
+        document.getElementById('swTimeDisplay').innerText = '0.00';
         clearPendingTargetHighlight();
-        const old = document.getElementById('swFloatPanel');
-        if (old) old.remove();
+        
+        const wrapper = document.getElementById('swLapsWrapper');
+        if (wrapper) wrapper.style.display = 'none';
+        
+        updateStopwatchButtonsUI();
+        showToast('🔄 秒表已归零');
+    }
+}
+
+// ================= 4. 晃动手机计次/停表传感器 =================
+function enableShakeToStop() {
+    if (swShakeEnabled) {
+        swShakeEnabled = false;
+        window.removeEventListener('devicemotion', handleDeviceMotionShake);
+        const btn = document.getElementById('swShakeToggleBtn');
+        if (btn) btn.style.background = 'rgba(255,255,255,0.15)';
+        showToast('已关闭摇晃手机停表');
+        return;
     }
 
-    function renderStopwatchFloatPanel(projType = '50米') {
-        currentStopwatchProjectType = projType;
-        removeStopwatchPanel();
-        const panel = document.createElement('div');
-        panel.id = 'swFloatPanel';
-        panel.className = 'stopwatch-float-panel';
-        
-        const screenW = window.innerWidth || document.documentElement.clientWidth;
-        const screenH = window.innerHeight || document.documentElement.clientHeight;
+    // iOS 13+ 需要用户点击触发运动传感器授权
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().then(permissionState => {
+            if (permissionState === 'granted') {
+                activateShakeListener();
+            } else {
+                alert('未能获取手机动作与方向权限，无法使用摇晃停表（需在 HTTPS 或本地环境下授权）。');
+            }
+        }).catch(err => {
+            alert('传感器权限请求失败：' + err);
+        });
+    } else if ('DeviceMotionEvent' in window) {
+        activateShakeListener();
+    } else {
+        alert('当前设备或浏览器不支持重力感应摇一摇。');
+    }
+}
 
-        if (swPanelPos.left !== undefined && swPanelPos.top !== undefined && 
-            swPanelPos.left >= 0 && swPanelPos.left < (screenW - 140) &&
-            swPanelPos.top >= 0 && swPanelPos.top < (screenH - 140)) {
-            panel.style.left = swPanelPos.left + 'px';
-            panel.style.top = swPanelPos.top + 'px';
-            panel.style.right = 'auto';
-            panel.style.bottom = 'auto';
+function activateShakeListener() {
+    swShakeEnabled = true;
+    window.addEventListener('devicemotion', handleDeviceMotionShake, false);
+    const btn = document.getElementById('swShakeToggleBtn');
+    if (btn) btn.style.background = '#2E7D32';
+    showToast('📳 摇晃停表已开启！计时中用力晃动手机即可计次/停表');
+}
+
+function handleDeviceMotionShake(e) {
+    if (!swRunning || !swShakeEnabled) return;
+    const acc = e.accelerationIncludingGravity || e.acceleration;
+    if (!acc) return;
+
+    // 计算三轴合加速度（正常静止约为 9.8m/s²，用力甩动手机通常 > 24）
+    const totalAcc = Math.sqrt((acc.x || 0) ** 2 + (acc.y || 0) ** 2 + (acc.z || 0) ** 2);
+    const now = Date.now();
+
+    // 阈值 25，且两次摇晃触发间隔至少 450ms（防止一次挥手触发两次）
+    if (totalAcc > 25 && (now - lastShakeTime > 450)) {
+        lastShakeTime = now;
+        // 摇晃手机时：如果是 50米且设置了自动停表人数，直接等同于按“计次（满额自动停表）”；否则直接记录当前成绩并停表
+        if (currentStopwatchProjectType === '50米' && swAutoStopLaps > 0) {
+            handleSwRow1Action();
         } else {
-            panel.style.right = '15px';
-            panel.style.bottom = '60px';
-            panel.style.left = 'auto';
-            panel.style.top = 'auto';
+            const curStr = formatTimeByProject(swElapsedTime, currentStopwatchProjectType);
+            if (!swLaps.includes(curStr)) swLaps.push(curStr);
+            stopStopwatchOnly();
+            if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+            setPendingLapTime(swLaps[0]);
+            showToast(`📳 摇晃停表成功: ${curStr}`);
         }
+    }
+}
 
-        const projTitle = projType === 'runL' ? '耐力跑秒表' : '50m秒表';
+function renderStopwatchLapsList() {
+    const wrapper = document.getElementById('swLapsWrapper');
+    const container = document.getElementById('swLapsContainer');
+    const tag = document.getElementById('swLapCountTag');
+    if (!wrapper || !container) return;
 
-        panel.innerHTML = `
-            <div class="sw-drag-handle" id="swDragBar">
-                <span style="font-size:12px; color:#FFB74D; font-weight:bold;">⚡ ${projTitle}</span>
-                <span style="font-size:11px; color:#bbb;">⠿ 拖动</span>
-            </div>
-            <div class="sw-timer-display" id="swTimeDisplay">0.00</div>
-            
-            <button id="swRow1Btn" class="sw-btn-row btn-start-state" onclick="handleSwRow1Action()">▶ 开始</button>
-            <button id="swRow2Btn" class="sw-btn-row btn-reset-state" onclick="handleSwRow2Action()">🔄 重置</button>
-            
-            <div id="swLapsWrapper" style="display:none; margin-top:2px;">
-                <div style="font-size:11px; color:#aaa; margin-bottom:2px; display:flex; justify-content:space-between;">
-                    <span>流水(点名填录):</span>
-                    <span id="swLapCountTag" style="color:#FFB74D;">0次</span>
-                </div>
-                <div class="sw-laps-container" id="swLapsContainer"></div>
+    if (swLaps.length === 0) {
+        wrapper.style.display = 'none';
+        return;
+    }
+
+    wrapper.style.display = 'block';
+    tag.innerText = `${swLaps.length}条待录`;
+
+    let html = '';
+    swLaps.forEach((timeStr, idx) => {
+        const isSelected = (selectedPendingLapTime === timeStr);
+        html += `
+            <div class="sw-lap-item ${isSelected ? 'active-lap' : ''}" onclick="setPendingLapTime('${timeStr}')">
+                <span>第 ${idx + 1} 名</span>
+                <span><b>${timeStr}</b></span>
             </div>
         `;
-        document.body.appendChild(panel);
-        bindStopwatchDragEvents(panel);
-    }
+    });
+    container.innerHTML = html;
+}
 
-    function bindStopwatchDragEvents(panel) {
-        const handle = panel.querySelector('#swDragBar');
-        let isDragging = false;
-        let startX, startY, initLeft, initTop;
+function setPendingLapTime(timeStr) {
+    selectedPendingLapTime = timeStr;
+    renderStopwatchLapsList();
+    const targets = document.querySelectorAll('.tc-student-click-target');
+    targets.forEach(el => el.classList.add('awaiting-target-name'));
+}
 
-        const onStart = (e) => {
-            isDragging = true;
-            const touch = e.touches ? e.touches[0] : e;
-            startX = touch.clientX;
-            startY = touch.clientY;
-            const rect = panel.getBoundingClientRect();
-            initLeft = rect.left;
-            initTop = rect.top;
-            panel.style.right = 'auto';
-            panel.style.bottom = 'auto';
-            panel.style.left = initLeft + 'px';
-            panel.style.top = initTop + 'px';
-        };
-
-        const onMove = (e) => {
-            if (!isDragging) return;
-            const touch = e.touches ? e.touches[0] : e;
-            const dx = touch.clientX - startX;
-            const dy = touch.clientY - startY;
-            let newX = Math.max(5, Math.min(initLeft + dx, window.innerWidth - panel.offsetWidth - 5));
-            let newY = Math.max(5, Math.min(initTop + dy, window.innerHeight - panel.offsetHeight - 5));
-            panel.style.left = newX + 'px';
-            panel.style.top = newY + 'px';
-        };
-
-        const onEnd = () => {
-            if (!isDragging) return;
-            isDragging = false;
-            swPanelPos = { left: parseInt(panel.style.left, 10), top: parseInt(panel.style.top, 10) };
-            localStorage.setItem('sw_tc_pos', JSON.stringify(swPanelPos));
-        };
-
-        handle.addEventListener('touchstart', onStart, { passive: false });
-        window.addEventListener('touchmove', onMove, { passive: false });
-        window.addEventListener('touchend', onEnd);
-        handle.addEventListener('mousedown', onStart);
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('mouseup', onEnd);
-    }
-
-    function updateStopwatchButtonsUI() {
-        const btn1 = document.getElementById('swRow1Btn');
-        const btn2 = document.getElementById('swRow2Btn');
-        if (!btn1 || !btn2) return;
-
-        if (swRunning) {
-            btn1.innerText = "⏱ 计次";
-            btn1.className = "sw-btn-row btn-lap-state";
-
-            btn2.innerText = "⏹ 停止";
-            btn2.className = "sw-btn-row btn-stop-state";
-        } else {
-            btn1.innerText = "▶ 开始";
-            btn1.className = "sw-btn-row btn-start-state";
-
-            btn2.innerText = "🔄 重置";
-            btn2.className = "sw-btn-row btn-reset-state";
-        }
-    }
-
-    function handleSwRow1Action() {
-        if (!swRunning) {
-            swRunning = true;
-            swStartTime = performance.now() - swElapsedTime;
-            swTimer = setInterval(() => {
-                swElapsedTime = performance.now() - swStartTime;
-                document.getElementById('swTimeDisplay').innerText = formatDisplayClock(swElapsedTime);
-            }, 25);
-            updateStopwatchButtonsUI();
-            showToast('▶ 秒表已起动');
-        } else {
-            const currentFormattedStr = formatTimeByProject(swElapsedTime, currentStopwatchProjectType);
-            swLaps.push(currentFormattedStr);
-            
-            if (!selectedPendingLapTime) {
-                setPendingLapTime(swLaps[0]);
-            } else {
-                renderStopwatchLapsList();
-            }
-            showToast(`⏱ 已计第${swLaps.length}名: ${currentFormattedStr}`);
-        }
-    }
-
-    function handleSwRow2Action() {
-        if (swRunning) {
-            clearInterval(swTimer);
-            swTimer = null;
-            swRunning = false;
-            updateStopwatchButtonsUI();
-            
-            const finalFormattedStr = formatTimeByProject(swElapsedTime, currentStopwatchProjectType);
-            if (parseFloat(finalFormattedStr) > 0 && !swLaps.includes(finalFormattedStr)) {
-                swLaps.push(finalFormattedStr);
-            }
-            
-            if (swLaps.length > 0) {
-                setPendingLapTime(swLaps[0]);
-                showToast(`🏁 计时结束！待录第1名: ${swLaps[0]} (点姓名填入)`);
-            } else {
-                showToast(`⏹ 秒表停止: ${finalFormattedStr}`);
-            }
-        } else {
-            swElapsedTime = 0;
-            swLaps = [];
-            selectedPendingLapTime = null;
-            document.getElementById('swTimeDisplay').innerText = '0.00';
-            clearPendingTargetHighlight();
-            
-            const wrapper = document.getElementById('swLapsWrapper');
-            if (wrapper) wrapper.style.display = 'none';
-            
-            updateStopwatchButtonsUI();
-            showToast('🔄 秒表已归零');
-        }
-    }
-
-    function renderStopwatchLapsList() {
-        const wrapper = document.getElementById('swLapsWrapper');
-        const container = document.getElementById('swLapsContainer');
-        const tag = document.getElementById('swLapCountTag');
-        if (!wrapper || !container) return;
-
-        if (swLaps.length === 0) {
-            wrapper.style.display = 'none';
-            return;
-        }
-
-        wrapper.style.display = 'block';
-        tag.innerText = `${swLaps.length}条待录`;
-
-        let html = '';
-        swLaps.forEach((timeStr, idx) => {
-            const isSelected = (selectedPendingLapTime === timeStr);
-            html += `
-                <div class="sw-lap-item ${isSelected ? 'active-lap' : ''}" onclick="setPendingLapTime('${timeStr}')">
-                    <span>第 ${idx + 1} 名</span>
-                    <span><b>${timeStr}</b></span>
-                </div>
-            `;
-        });
-        container.innerHTML = html;
-    }
-
-    function setPendingLapTime(timeStr) {
-        selectedPendingLapTime = timeStr;
-        renderStopwatchLapsList();
-        const targets = document.querySelectorAll('.tc-student-click-target');
-        targets.forEach(el => el.classList.add('awaiting-target-name'));
-    }
-
-    function clearPendingTargetHighlight() {
-        const targets = document.querySelectorAll('.tc-student-click-target');
-        targets.forEach(el => el.classList.remove('awaiting-target-name'));
-    }
+function clearPendingTargetHighlight() {
+    const targets = document.querySelectorAll('.tc-student-click-target');
+    targets.forEach(el => el.classList.remove('awaiting-target-name'));
+}
 
     function handleTcNameClick(idx) {
-        const input = document.getElementById(`tc-row-${idx}`);
-        const cls = document.getElementById('tcClassSelect').value;
-        if (!input) return;
+    const input = document.getElementById(`tc-row-${idx}`) || document.getElementById(`tc-row-${idx}-h`);
+    const cls = document.getElementById('tcClassSelect').value;
+    if (!input) return;
 
-        if (selectedPendingLapTime) {
-            const currentFilledTime = selectedPendingLapTime;
-            input.value = currentFilledTime;
-            onTcBatchScoreInput(input, cls);
+    if (selectedPendingLapTime) {
+        const currentFilledTime = selectedPendingLapTime;
+        input.value = currentFilledTime;
+        onTcBatchScoreInput(input, cls);
 
-            const removeIndex = swLaps.indexOf(currentFilledTime);
-            if (removeIndex > -1) {
-                swLaps.splice(removeIndex, 1);
-            }
-
-            if (swLaps.length > 0) {
-                setPendingLapTime(swLaps[0]);
-                showToast(`✅【${input.getAttribute('data-name')}】已录入！请点下一名 (${swLaps[0]})`);
-            } else {
-                selectedPendingLapTime = null;
-                renderStopwatchLapsList();
-                clearPendingTargetHighlight();
-                showToast(`🎉 计次名次已全部录入完毕！`);
-            }
-            return;
+        const removeIndex = swLaps.indexOf(currentFilledTime);
+        if (removeIndex > -1) {
+            swLaps.splice(removeIndex, 1);
         }
 
-        onTcBatchScoreInput(input, cls);
-        const studentName = input.getAttribute('data-name');
-        openScoreModal(cls, studentName);
+        if (swLaps.length > 0) {
+            setPendingLapTime(swLaps[0]);
+            showToast(`✅【${input.getAttribute('data-name')}】已录入！请点下一名 (${swLaps[0]})`);
+        } else {
+            selectedPendingLapTime = null;
+            renderStopwatchLapsList();
+            clearPendingTargetHighlight();
+            showToast(`🎉 计次名次已全部录入完毕！`);
+        }
+        return;
     }
 
-    // 数据分析综合看板统计[cite: 8, 9]
-    function populateAnalysisClassFilter() {
-        const select = document.getElementById('analysisClassSelect');
-        let classNames = Object.keys(students);
+    onTcBatchScoreInput(input, cls);
+    const studentName = input.getAttribute('data-name');
+    openScoreModal(cls, studentName);
+}
 
-        let html = '<option value="ALL">全部班级 (全校汇总)</option>';
-        classNames.forEach(c => {
+  function populateAnalysisClassFilter() {
+    const select = document.getElementById('analysisClassSelect');
+    if (!select) return;
+    const groups = getSortedClassGroups();
+
+    let html = '<option value="ALL">全部班级 (全校汇总)</option>';
+    Object.keys(groups).forEach(groupLabel => {
+        html += `<optgroup label="━━ ${groupLabel} ━━">`;
+        groups[groupLabel].forEach(c => {
             html += `<option value="${c}">${c}</option>`;
         });
-        select.innerHTML = html;
-    }
+        html += `</optgroup>`;
+    });
+    select.innerHTML = html;
+}
 
     function computeAndRenderAnalysisDashboard() {
         const selectedScope = document.getElementById('analysisClassSelect') ? document.getElementById('analysisClassSelect').value : 'ALL';
