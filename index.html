@@ -2251,7 +2251,6 @@ function activateShakeListener() {
 function handleDeviceMotionShake(e) {
     if (!swRunning || !swShakeEnabled) return;
     
-    // 优先使用去除了地球重力干扰的纯线性加速度，若设备不支持则用合加速度减去重力基准(9.8)
     let netAcc = 0;
     if (e.acceleration && e.acceleration.x !== null) {
         netAcc = Math.sqrt(
@@ -2274,24 +2273,14 @@ function handleDeviceMotionShake(e) {
         shakeArmed = true;
     }
 
-    // 触发条件：已复位解锁 + 净加速度 > 13（轻快甩腕即可触发）+ 间隔 > 100ms（支持0.1秒极速连摇两次）
+    // 触发条件：已复位解锁 + 净加速度 > 13 + 间隔 > 100ms
     if (shakeArmed && netAcc > 13 && (now - lastShakeTime > 100)) {
         shakeArmed = false; 
         lastShakeTime = now;
-
-        if (currentStopwatchProjectType === '50米' && swAutoStopLaps > 0) {
-            handleSwRow1Action();
-        } else {
-            const curStr = formatTimeByProject(swElapsedTime, currentStopwatchProjectType);
-            swLaps.push(curStr);
-            stopStopwatchOnly();
-            if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
-            setPendingLapTime(swLaps[0]);
-            showToast(`📳 摇晃停表: ${curStr}`);
-        }
+        handleSwRow1Action();
     }
 }
-function renderStopwatchLapsList() {
+        function renderStopwatchLapsList() {
     const wrapper = document.getElementById('swLapsWrapper');
     const container = document.getElementById('swLapsContainer');
     const tag = document.getElementById('swLapCountTag');
