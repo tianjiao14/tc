@@ -4,12 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <link rel="manifest" href="manifest.json">
-
-<!-- Android / Chrome 沉浸式状态栏与全屏支持 -->
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#FF5722">
-
-<!-- iOS / Safari (添加到主屏幕) 沉浸式全屏支持 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="体测工作台">
@@ -688,7 +683,7 @@ button:active {
 
 @media (max-width: 900px) {
     .menu-toggle-btn, .app-sidebar {
-        display: none !important; /* 手机端彻底隐藏旧式抽屉，启用底部原生TabBar */
+        display: none !important;
     }
     .app-bottom-tabbar {
         display: flex !important;
@@ -696,8 +691,16 @@ button:active {
     .view-viewport {
         padding: 12px 12px 90px 12px !important;
     }
+    /* 1. 修复唤出秒表向上拖动变长的问题：去掉 !important，并锁死宽高 */
     .sw-mini-fab {
-        bottom: 82px !important; /* 避开底部TabBar */
+        bottom: 82px;
+        height: 44px !important;
+        width: max-content !important;
+        white-space: nowrap !important;
+    }
+    /* 2. 移动端班级管理页隐藏学籍号列与输入框 */
+    .hide-on-mobile {
+        display: none !important;
     }
 }
     </style>
@@ -734,7 +737,7 @@ button:active {
             <span id="currentViewTitle">📝 学生体测数据采集</span>
         </div>
         <div style="font-size: 12px; color: #777; font-weight: normal;">
-            数据本地安全存储
+            数据仅本地存储
         </div>
     </div>
 
@@ -743,33 +746,32 @@ button:active {
         <div id="view-roster" class="container-box" style="display:none;">
             <div class="dashboard-card">
                 <div class="file-input-wrapper" onclick="document.getElementById('excelFile').click()">
-                    <span id="fileStatus">🟠 导入体测名册 / 历史数据 Excel (自动识别班级与学生)</span>
+                    <span id="fileStatus">🟠 导入体测名单或成绩</span>
                     <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" onchange="importExcel(event)">
                 </div>
             </div>
 
             <div class="dashboard-card">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
-                    <div style="display:flex; gap:8px; align-items:center; flex:1; min-width:220px;">
-                        <select id="rosterClassSelect" style="flex:1; font-weight:bold; color:#E65100; border-color:#FFB74D;" onchange="renderRosterManageTable()">
-                            <option value="">-- 选择要管理的班级 --</option>
-                        </select>
-                        <button class="btn-blue" style="padding:8px 12px; font-size:12px; white-space:nowrap;" onclick="createNewClassPrompt()">➕ 新建班级</button>
-                        <button class="btn-danger-sys" style="padding:8px 12px; font-size:12px; white-space:nowrap;" onclick="deleteCurrentClass()">🗑️ 删班</button>
-                    </div>
+                <!-- 修复溢出：下拉框设 min-width:0 自动收缩，按钮紧凑排列在同一行 -->
+                <div style="display:flex; gap:6px; align-items:center; width:100%; margin-bottom:12px;">
+                    <select id="rosterClassSelect" style="flex:1; min-width:0; text-overflow:ellipsis; font-weight:bold; color:#E65100; border-color:#FFB74D;" onchange="renderRosterManageTable()">
+                        <option value="">-- 选择班级 --</option>
+                    </select>
+                    <button class="btn-blue" style="padding:10px 10px; font-size:12px; white-space:nowrap; flex-shrink:0;" onclick="createNewClassPrompt()">➕ 新建</button>
+                    <button class="btn-danger-sys" style="padding:10px 10px; font-size:12px; white-space:nowrap; flex-shrink:0;" onclick="deleteCurrentClass()">🗑️ 删班</button>
                 </div>
 
                 <!-- 手动新增单名学生栏 -->
-                <div id="rosterAddStudentBar" style="display:none; background:#FFF3E0; padding:10px; border-radius:6px; margin-bottom:12px; border:1px solid #FFE0B2;">
+                <div id="rosterAddStudentBar" style="display:none; background:#FFF3E0; padding:10px; border-radius:12px; margin-bottom:12px; border:1px solid #FFE0B2;">
                     <div style="font-size:12px; font-weight:bold; color:#BF360C; margin-bottom:6px;">➕ 向当前班级添加学生：</div>
                     <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                        <input type="text" id="newStuNameInput" placeholder="姓名(必填)" style="flex:1; min-width:90px; padding:6px 8px; font-size:13px;">
-                        <select id="newStuGenderInput" style="width:75px; padding:6px; font-size:13px;">
+                        <input type="text" id="newStuNameInput" placeholder="姓名(必填)" style="flex:1; min-width:90px; padding:8px; font-size:13px;">
+                        <select id="newStuGenderInput" style="width:72px; padding:8px; font-size:13px;">
                             <option value="男">男</option>
                             <option value="女">女</option>
                         </select>
-                        <input type="text" id="newStuCodeInput" placeholder="学籍号(选填)" style="flex:1.5; min-width:120px; padding:6px 8px; font-size:13px;">
-                        <button class="btn-green" style="padding:6px 14px; font-size:13px;" onclick="addSingleStudentToClass()">添加</button>
+                        <input type="text" id="newStuCodeInput" class="hide-on-mobile" placeholder="学籍号(选填)" style="flex:1.5; min-width:120px; padding:8px; font-size:13px;">
+                        <button class="btn-green" style="padding:8px 14px; font-size:13px; white-space:nowrap;" onclick="addSingleStudentToClass()">添加</button>
                     </div>
                 </div>
 
@@ -778,7 +780,7 @@ button:active {
                     <div style="text-align:center; color:#999; padding:25px 0; font-size:13px;">请先在上方选择一个班级，或导入 Excel 名册</div>
                 </div>
             </div>
-        </div>
+</div>
 
         <!-- 视图 1：数据采集 -->
         <div id="view-collect" class="container-box">
@@ -937,9 +939,9 @@ button:active {
                     <th style="width:90px;">学段</th>
                     <th>测试项目</th>
                     <th>有效测试人数</th>
-                    <th>单项平均得分</th>
-                    <th>单项及格率 (≥60分)</th>
-                    <th>单项优良率 (≥80分)</th>
+                    <th>平均分</th>
+                    <th>及格率 (≥60分)</th>
+                    <th>优良率 (≥80分)</th>
                 </tr>
             </thead>
             <tbody id="analysisProjectTbody">
@@ -1206,21 +1208,25 @@ button:active {
 
     ['roster', 'collect', 'analysis', 'report'].forEach(v => {
         const btn = document.getElementById(`nav-btn-${v}`);
+        const tabBtn = document.getElementById(`tab-btn-${v}`);
         const panel = document.getElementById(`view-${v}`);
         if (btn) btn.classList.remove('active');
+        if (tabBtn) tabBtn.classList.remove('active');
         if (panel) panel.style.display = 'none';
     });
 
     const curBtn = document.getElementById(`nav-btn-${viewType}`);
+    const curTabBtn = document.getElementById(`tab-btn-${viewType}`);
     const curPanel = document.getElementById(`view-${viewType}`);
     if (curBtn) curBtn.classList.add('active');
+    if (curTabBtn) curTabBtn.classList.add('active');
     if (curPanel) curPanel.style.display = 'block';
 
     const titleMap = {
-        'roster': '👥 班级名册与免测管理',
-        'collect': '📝 学生体测数据采集',
-        'analysis': '📈 体质健康数据综合研判',
-        'report': '🚀 国家标准数据上报专区'
+        'roster': '👥 测试名单与免测管理',
+        'collect': '📝 数据采集',
+        'analysis': '📈 数据分析',
+        'report': '🚀 上报专区'
     };
     const titleEl = document.getElementById('currentViewTitle');
     if (titleEl) titleEl.innerText = titleMap[viewType] || '体测工作台';
@@ -4474,42 +4480,42 @@ function renderRosterManageTable() {
         const isEx = !!s.exempt;
         rowsHtml += `
             <tr style="background:${isEx ? '#FFF8E1' : (idx % 2 === 0 ? '#fff' : '#fafafa')}; border-bottom:1px solid #eee;">
-                <td style="padding:8px 4px; color:#888; font-size:12px;">${idx + 1}</td>
-                <td style="padding:8px 6px; font-weight:800; color:${isEx ? '#E65100' : '#1565C0'}; text-align:left; cursor:pointer;"
+                <td style="padding:10px 4px; color:#888; font-size:12px; width:34px;">${idx + 1}</td>
+                <td style="padding:10px 6px; font-weight:800; color:${isEx ? '#E65100' : '#1565C0'}; text-align:left; cursor:pointer; white-space:nowrap;"
                     onclick="openStudentVisualReport('${cls}', ${idx})" title="点击查看学生个人体质健康数据报告">
-                    <span style="border-bottom:1px dashed #90CAF9; padding-bottom:1px;"> ${s.name}</span>
-                    ${isEx ? '<span style="background:#FF9800; color:#fff; font-size:10px; padding:1px 5px; border-radius:4px; margin-left:4px;">免测</span>' : ''}
+                    <span style="border-bottom:1px dashed #90CAF9; padding-bottom:1px;">📊 ${s.name}</span>
+                    ${isEx ? '<span style="background:#FF9800; color:#fff; font-size:10px; padding:2px 5px; border-radius:4px; margin-left:4px; vertical-align:middle;">免测</span>' : ''}
                 </td>
-                <td style="padding:8px 4px; color:${s.gender === '男' ? '#1976D2' : '#E91E63'}; font-weight:bold;">${s.gender}</td>
-                <td style="padding:8px 4px; font-size:12px; color:#666;">${s.stuCode || '-'}</td>
-                <td style="padding:8px 4px;">
+                <td style="padding:10px 4px; color:${s.gender === '男' ? '#1976D2' : '#E91E63'}; font-weight:bold; white-space:nowrap; width:44px;">${s.gender}</td>
+                <td class="hide-on-mobile" style="padding:10px 4px; font-size:12px; color:#666;">${s.stuCode || '-'}</td>
+                <td style="padding:10px 4px; white-space:nowrap;">
                     <button onclick="toggleStudentExempt('${cls}', ${idx})" 
-                            style="padding:5px 10px; font-size:12px; border-radius:15px; background:${isEx ? '#FF9800' : '#E8F5E9'}; color:${isEx ? '#fff' : '#2E7D32'}; border:1px solid ${isEx ? '#F57C00' : '#A5D6A7'};">
+                            style="padding:6px 12px; font-size:12px; border-radius:15px; white-space:nowrap; background:${isEx ? '#FF9800' : '#E8F5E9'}; color:${isEx ? '#fff' : '#2E7D32'}; border:1px solid ${isEx ? '#F57C00' : '#A5D6A7'}; box-shadow:none;">
                         ${isEx ? '🚫 免测' : '✅ 正常'}
                     </button>
                 </td>
-                <td style="padding:8px 4px;">
-                    <button onclick="deleteSingleStudent('${cls}', ${idx})" style="padding:4px 8px; font-size:11px; background:#ffebee; color:#c62828; border:1px solid #ffcdd2;">删除</button>
+                <td style="padding:10px 4px; white-space:nowrap; width:56px;">
+                    <button onclick="deleteSingleStudent('${cls}', ${idx})" style="padding:5px 10px; font-size:12px; white-space:nowrap; background:#ffebee; color:#c62828; border:1px solid #ffcdd2; box-shadow:none;">删除</button>
                 </td>
             </tr>
         `;
     });
 
     wrap.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:13px;">
-            <span>📋 <b>${cls}</b> 共 <b>${list.length}</b> 人（免测 <b style="color:#E65100;">${exemptCount}</b> 人）</span>
-            <span style="font-size:11px; color:#888;">提示：标记免测后，数据采集界面将自动跳过该生</span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:12px; flex-wrap:wrap; gap:4px;">
+            <span>📋 <b>${cls}</b> 共 <b>${list.length}</b> 人（参测 <b>${list.length - exemptCount}</b> 人，免测 <b style="color:#E65100;">${exemptCount}</b> 人）</span>
+            <span style="font-size:11px; color:#888;">点击姓名可看报告</span>
         </div>
-        <div style="max-height:55vh; overflow-y:auto; border:1px solid #e0e0e0; border-radius:6px;">
-            <table class="analysis-table" style="font-size:13px;">
-                <thead style="position:sticky; top:0; background:#f5f5f5; z-index:1;">
+        <div style="max-height:58vh; overflow-y:auto; border:1px solid #f0f0f0; border-radius:12px;">
+            <table class="analysis-table" style="font-size:13px; width:100%;">
+                <thead style="position:sticky; top:0; background:#f8fafc; z-index:1;">
                     <tr>
-                        <th style="width:40px;">#</th>
-                        <th style="text-align:left;">姓名</th>
-                        <th style="width:55px;">性别</th>
-                        <th>学籍号</th>
-                        <th style="width:165px;">免测状态设置</th>
-                        <th style="width:65px;">操作</th>
+                        <th style="width:34px;">#</th>
+                        <th style="text-align:left; padding-left:8px;">姓名</th>
+                        <th style="width:44px;">性别</th>
+                        <th class="hide-on-mobile">学籍号</th>
+                        <th style="width:90px;">状态设置</th>
+                        <th style="width:56px;">操作</th>
                     </tr>
                 </thead>
                 <tbody>${rowsHtml}</tbody>
@@ -4517,7 +4523,6 @@ function renderRosterManageTable() {
         </div>
     `;
 }
-
 // 切换学生“正常参测 / 免予测试”状态
 function toggleStudentExempt(cls, idx) {
     if (!students[cls] || !students[cls][idx]) return;
