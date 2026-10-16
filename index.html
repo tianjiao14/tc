@@ -1030,8 +1030,7 @@ button:active {
             </div>
             <button class="btn-secondary" style="width:auto; padding:8px 16px; margin:0;" onclick="exportClassInfoTable()">导出班级信息</button>
         </div>
-    </div>
-    </div>
+    </div> 
 </div>
 
 <!-- 单人全项体测档案卡片 -->
@@ -1041,7 +1040,19 @@ button:active {
         <div id="modalCalendarBody"></div>
     </div>
 </div>
-
+<!-- 智能数据校验结果交互弹窗 -->
+<div class="modal-overlay" id="smartCheckModal" onclick="if(event.target.id==='smartCheckModal') this.style.display='none'">
+    <div class="modal-content" style="max-width: 500px;" onclick="event.stopPropagation()">
+        <span class="close-modal" onclick="document.getElementById('smartCheckModal').style.display='none'">&times;</span>
+        <h3 style="margin-top:0; color:#EF6C00; text-align:center;">🔍 智能数据校验报告</h3>
+        <div id="smartCheckSummaryBanner" style="background:#FFF3E0; border-radius:10px; padding:10px; font-size:12px; color:#BF360C; margin-bottom:12px; line-height:1.6;"></div>
+        
+        <div style="font-size:12px; font-weight:bold; color:#555; margin-bottom:6px;">
+            ⚠️ 异常清单（点击右侧按钮直接跳转修改）：
+        </div>
+        <div id="smartCheckErrorListContainer" style="max-height:55vh; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+</div>
 <!-- 测试环境信息配置弹窗 -->
 <div class="modal-overlay" id="envSettingsModal" onclick="if(event.target.id==='envSettingsModal') this.style.display='none'">
     <div class="modal-content" style="max-width: 520px;" onclick="event.stopPropagation()">
@@ -1385,40 +1396,51 @@ button:active {
     }
 
     function parseTime(v) {
-        if (v === undefined || v === null) return 0;
-        let s = String(v).trim();
-        if (s === '' || s === '-' || s === '0') return 0;
+    if (v === undefined || v === null) return 0;
+    let s = String(v).trim();
+    if (s === '' || s === '-' || s === '0') return 0;
 
-        s = s.replace(/分/g, '.').replace(/[秒"”″]/g, '').trim();
-        s = s.replace(/['’‘′:：]/g, '.');
+    // 清理中文字符与引号符号
+    s = s.replace(/分/g, '.').replace(/[秒"”″]/g, '').trim();
+    s = s.replace(/['’‘′:：]/g, '.');
 
-        if (s.includes('.')) {
-            let parts = s.split('.');
-            let m = parseInt(parts[0], 10) || 0;
-            let sStr = parts[1] || '0';
-            
-            let sec = parseInt(sStr.substring(0, 2), 10) || 0;
-            if (sStr.length === 1 && sec < 6) {
-                sec = sec * 10;
-            }
-            return m * 60 + sec;
+    // 1. 如果包含小数点或分隔符（如 1.52 或 59.45）
+    if (s.includes('.')) {
+        let parts = s.split('.');
+        let first = parseFloat(parts[0]) || 0;
+        let secondStr = parts[1] || '0';
+        
+        // 关键修复：如果整数部分 >= 15（如 59.45），说明整个数值就是纯秒数（59.45秒）！
+        if (first >= 15) {
+            return parseFloat(s) || 0;
         }
 
-        let num = parseFloat(s);
-        if (isNaN(num)) return 0;
-
-        if (num >= 100) {
-            let m = Math.floor(num / 100);
-            let sec = num % 100;
-            return m * 60 + sec;
+        // 否则整数部分 < 15（如 1.52、2.04、3.45），前部为【分】，后部为【秒】
+        let m = Math.floor(first);
+        let sec = parseInt(secondStr.substring(0, 2), 10) || 0;
+        // 兼容只有1位秒且小于6的情况（如 2.4 代表 2分40秒）
+        if (secondStr.length === 1 && sec < 6) {
+            sec = sec * 10;
         }
-
-        if (num > 0 && num <= 15) {
-            return Math.round(num * 60);
-        }
-
-        return Math.round(num);
+        return m * 60 + sec;
     }
+
+    let num = parseFloat(s);
+    if (isNaN(num) || num <= 0) return 0;
+
+    // 2. 纯数字无小数点处理：
+    // 如果是 3~4 位无点数字（如 204、152），智能识别为 2分04秒、1分52秒
+    if (/^\d{3,4}$/.test(s)) {
+        let secPart = num % 100;
+        let minPart = Math.floor(num / 100);
+        if (secPart < 60 && minPart < 15) {
+            return minPart * 60 + secPart;
+        }
+    }
+
+    // 纯秒数（如 56、75、98 秒）
+    return num;
+}
 
     function realGetScore(val, table, mode) {
         if (val === '' || val === null || val === undefined || isNaN(parseFloat(val))) return 0;
@@ -1799,22 +1821,25 @@ function getFilteredProjectItems(className) {
     return TC_PROJECT_ITEMS.filter(it => it.grades.includes(normG));
 }
 
-// 统计项目已测进度
 function getProjectProgressStats(cls, activeItems) {
     const rawList = (students[cls] || []).filter(s => !s.exempt);
+    const items = activeItems || getFilteredProjectItems(cls);
     const stats = {};
-    const normG = normalizeGrade(cls);
-    const isPrimaryGrade = normG.includes('年级');
+    
+    let normG = '';
+    if (rawList.length > 0 && rawList[0].gradeId) normG = normalizeGrade(rawList[0].gradeId);
+    if (!normG) normG = normalizeGrade(cls);
+    const isPrimary = normG.includes('年级') || cls.includes('小');
 
-    activeItems.forEach(item => {
+    items.forEach(item => {
         let targetList = rawList;
         if (item.val === '引体向上' || item.val === '1000米') {
             targetList = rawList.filter(s => s.gender === '男');
         } else if (item.val === '800米') {
             targetList = rawList.filter(s => s.gender === '女');
         } else if (item.val === '仰卧起坐') {
-            // 初高中仅女生测仰卧起坐；小学3-6年级男女生均测
-            if (!isPrimaryGrade) {
+            // 小学3-6年级男女均测；初中高中仅女生测
+            if (!isPrimary) {
                 targetList = rawList.filter(s => s.gender === '女');
             }
         }
@@ -1824,11 +1849,8 @@ function getProjectProgressStats(cls, activeItems) {
         targetList.forEach(s => {
             const sc = s.scores || {};
             if (item.val === 'BMI') {
-                const h = sc['身高'];
-                const w = sc['体重'];
-                if (h && w && String(h).trim() !== '-' && String(w).trim() !== '') {
-                    tested++;
-                }
+                const h = sc['身高'], w = sc['体重'];
+                if (h && w && String(h).trim() !== '-' && String(w).trim() !== '') tested++;
             } else if (item.val === '一分钟跳绳') {
                 const v = sc['一分钟跳绳'] || sc['跳绳'];
                 if (v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim() !== '-') tested++;
@@ -1838,37 +1860,6 @@ function getProjectProgressStats(cls, activeItems) {
             } else {
                 const v = sc[item.val];
                 if (v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim() !== '-') tested++;
-            }
-        });
-        stats[item.val] = { tested, total };
-    });
-    return stats;
-}
-function getProjectProgressStats(cls) {
-    const rawList = (students[cls] || []).filter(s => !s.exempt); // 免测学生不计入应测分母
-    const stats = {};
-    TC_PROJECT_ITEMS.forEach(item => {
-        let targetList = rawList;
-        if (item.val === '引体向上' || item.val === '1000米') {
-            targetList = rawList.filter(s => s.gender === '男');
-        } else if (item.val === '仰卧起坐' || item.val === '800米') {
-            targetList = rawList.filter(s => s.gender === '女');
-        }
-        const total = targetList.length;
-        let tested = 0;
-        targetList.forEach(s => {
-            const sc = s.scores || {};
-            if (item.val === 'BMI') {
-                const h = sc['身高'];
-                const w = sc['体重'];
-                if (h && w && String(h).trim() !== '-' && String(w).trim() !== '-') {
-                    tested++;
-                }
-            } else {
-                const v = sc[item.val];
-                if (v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim() !== '-') {
-                    tested++;
-                }
             }
         });
         stats[item.val] = { tested, total };
@@ -1985,16 +1976,17 @@ function selectTcProjectChip(projVal) {
     }
 
     let studentList = rawList;
-const normG = normalizeGrade(cls);
-const isPrimaryGrade = normG.includes('年级');
+let normG = '';
+if (rawList.length > 0 && rawList[0].gradeId) normG = normalizeGrade(rawList[0].gradeId);
+if (!normG) normG = normalizeGrade(cls);
+const isPrimary = normG.includes('年级') || cls.includes('小');
 
 if (proj === '引体向上' || proj === '1000米') {
     studentList = rawList.filter(s => s.gender === '男');
 } else if (proj === '800米') {
     studentList = rawList.filter(s => s.gender === '女');
 } else if (proj === '仰卧起坐') {
-    // 初高中仰卧起坐仅女生测；小学3-6年级男女生均测
-    if (!isPrimaryGrade) {
+    if (!isPrimary) {
         studentList = rawList.filter(s => s.gender === '女');
     }
 }
@@ -2148,8 +2140,21 @@ if (proj === '引体向上' || proj === '1000米') {
     const gender = inputElem.getAttribute('data-gender');
     const proj = inputElem.getAttribute('data-proj');
     const sName = inputElem.getAttribute('data-name');
-    const val = inputElem.value.trim();
+    let val = inputElem.value.trim();
     const badge = document.getElementById(`tc-badge-${idx}`);
+
+    // 耐力跑 / 50米×8 往返跑自动规范化格式处理
+    if (proj === '50米x8往返跑' || proj === '1000米' || proj === '800米') {
+        // 自动把 204 修正为 2.04
+        if (/^\d{3,4}$/.test(val)) {
+            let m = Math.floor(parseInt(val, 10) / 100);
+            let s = parseInt(val, 10) % 100;
+            if (s < 60 && m < 15) {
+                val = `${m}.${String(s).padStart(2, '0')}`;
+                inputElem.value = val; // 页面输入框同步变为 2.04
+            }
+        }
+    }
 
     let currentGradeId = '';
     let sObj = null;
@@ -2164,7 +2169,7 @@ if (proj === '引体向上' || proj === '1000米') {
             }
             currentGradeId = sObj.gradeId || '';
 
-            // 如果是身高或体重，自动联动计算并存储 BMI
+            // 身高体重联动
             if (proj === '身高' || proj === '体重') {
                 const h = parseFloat(sObj.scores['身高']);
                 const w = parseFloat(sObj.scores['体重']);
@@ -2180,7 +2185,21 @@ if (proj === '引体向上' || proj === '1000米') {
         }
     }
 
-    // 实时刷新右侧 BMI 数值与得分徽章
+    // 仰卧起坐合法性提示
+    if (proj === '仰卧起坐') {
+        if (val.includes('.')) {
+            badge.innerHTML = `<span style="color:#D32F2F; font-size:11px;">非整数!</span>`;
+            badge.classList.remove('has-val');
+            return;
+        }
+        let num = parseFloat(val);
+        if (num > 90) {
+            badge.innerHTML = `<span style="color:#D32F2F; font-size:11px;">超90次!</span>`;
+            badge.classList.remove('has-val');
+            return;
+        }
+    }
+
     if (proj === '身高' || proj === '体重') {
         if (badge && sObj) {
             const bmiVal = sObj.scores["体重指数(BMI)"];
@@ -2197,6 +2216,7 @@ if (proj === '引体向上' || proj === '1000米') {
         return;
     }
 
+    // 查分计算
     const calculated = queryStandardScore(proj, val, className, gender, currentGradeId);
     let pts = calculated !== null ? calculated : 0;
     if (badge) {
@@ -3040,10 +3060,7 @@ function clearPendingTargetHighlight() {
     function computeAndRenderAnalysisDashboard() {
     const selectedScope = document.getElementById('analysisClassSelect') ? document.getElementById('analysisClassSelect').value : 'ALL';
     let classList = Object.keys(students);
-
-    if (selectedScope !== 'ALL') {
-        classList = [selectedScope];
-    }
+    if (selectedScope !== 'ALL') classList = [selectedScope];
 
     let totalStudents = 0;
     let sumTotalScore = 0;
@@ -3051,17 +3068,18 @@ function clearPendingTargetHighlight() {
 
     const projectKeys = [
         { key: "50米", label: "50米跑" },
-        { key: "1000米", label: "1000米跑 (男)" },
-        { key: "800米", label: "800米跑 (女)" },
-        { key: "引体向上", label: "引体向上 (男)" },
-        { key: "仰卧起坐", label: "仰卧起坐 (女)" },
-        { key: "立定跳远", label: "立定跳远" },
+        { key: "一分钟跳绳", label: "1分钟跳绳" },
         { key: "坐位体前屈", label: "坐位体前屈" },
         { key: "肺活量", label: "肺活量" },
-        { key: "体重指数(BMI)", label: "体重指数(BMI)" }
+        { key: "体重指数(BMI)", label: "体重指数(BMI)" },
+        { key: "仰卧起坐", label: "1分钟仰卧起坐" },
+        { key: "50米x8往返跑", label: "50米×8往返跑" },
+        { key: "立定跳远", label: "立定跳远" },
+        { key: "引体向上", label: "引体向上 (男)" },
+        { key: "1000米", label: "1000米跑 (男)" },
+        { key: "800米", label: "800米跑 (女)" }
     ];
 
-    // 按 初中 / 高中 分开创建统计桶
     const initStageBucket = () => {
         const b = {};
         projectKeys.forEach(p => {
@@ -3069,7 +3087,10 @@ function clearPendingTargetHighlight() {
         });
         return b;
     };
+
+    // 增加【小学】统计桶
     let stageProjectStats = {
+        '小学': initStageBucket(),
         '初中': initStageBucket(),
         '高中': initStageBucket()
     };
@@ -3088,15 +3109,17 @@ function clearPendingTargetHighlight() {
             else if (fit.level === '及格') countBK++;
             else countNL++;
 
-            // 判定该生属于初中还是高中
+            // 识别该生属于小学、初中还是高中
             const gName = s.grade || normalizeGrade(s.gradeId || cls);
-            const stageKey = gName.includes('高') ? '高中' : '初中';
+            let stageKey = '初中';
+            if (gName.includes('年级') || cls.includes('小')) stageKey = '小学';
+            else if (gName.includes('高') || cls.includes('高')) stageKey = '高中';
+            
             const targetBucket = stageProjectStats[stageKey];
 
             let currentBmiVal = sScores["体重指数(BMI)"] || sScores["BMI"] || sScores["体重指数"] || '';
             if (!currentBmiVal && sScores["身高"] && sScores["体重"]) {
-                let h = parseFloat(sScores["身高"]);
-                let w = parseFloat(sScores["体重"]);
+                let h = parseFloat(sScores["身高"]), w = parseFloat(sScores["体重"]);
                 if (h > 0 && w > 0) {
                     let hM = h > 3 ? (h / 100) : h;
                     currentBmiVal = (w / (hM * hM)).toFixed(1);
@@ -3105,16 +3128,17 @@ function clearPendingTargetHighlight() {
 
             projectKeys.forEach(p => {
                 let val = null;
-                if (p.key === '体重指数(BMI)') {
-                    val = currentBmiVal;
-                } else if (p.key === '1000米') {
-                    if (s.gender === '男') val = sScores['1000米'] || sScores['耐力跑'] || sScores['runL'];
+                if (p.key === '体重指数(BMI)') val = currentBmiVal;
+                else if (p.key === '一分钟跳绳') val = sScores['一分钟跳绳'] || sScores['跳绳'];
+                else if (p.key === '50米x8往返跑') val = sScores['50米x8往返跑'] || sScores['50米×8往返跑'] || sScores['往返跑'];
+                else if (p.key === '1000米') {
+                    if (s.gender === '男') val = sScores['1000米'] || sScores['耐力跑'];
                 } else if (p.key === '800米') {
-                    if (s.gender === '女') val = sScores['800米'] || sScores['耐力跑'] || sScores['runL'];
+                    if (s.gender === '女') val = sScores['800米'] || sScores['耐力跑'];
                 } else if (p.key === '引体向上') {
-                    if (s.gender === '男') val = sScores['引体向上'] || sScores['引体'] || sScores['str'];
+                    if (s.gender === '男') val = sScores['引体向上'] || sScores['引体'];
                 } else if (p.key === '仰卧起坐') {
-                    if (s.gender === '女') val = sScores['仰卧起坐'] || sScores['仰卧'] || sScores['str'];
+                    if (stageKey === '小学' || s.gender === '女') val = sScores['仰卧起坐'] || sScores['仰卧'];
                 } else {
                     val = sScores[p.key] || sScores[p.label];
                 }
@@ -3132,6 +3156,7 @@ function clearPendingTargetHighlight() {
         });
     });
 
+    // 渲染上方四大核心数字指标
     const anTotEl = document.getElementById('an-total-students');
     if (anTotEl) anTotEl.innerText = totalStudents;
     let avgScore = totalStudents > 0 ? (sumTotalScore / totalStudents).toFixed(1) : "0.0";
@@ -3160,388 +3185,403 @@ function clearPendingTargetHighlight() {
     if (document.getElementById('tag-bk')) document.getElementById('tag-bk').innerText = `${countBK}人 (${pBK}%)`;
     if (document.getElementById('tag-nl')) document.getElementById('tag-nl').innerText = `${countNL}人 (${pNL}%)`;
 
-    // 渲染表格3：初高中分开统计各单项平均成绩与及格情况
+    // 渲染表格3：单项成绩表
     const tbody = document.getElementById('analysisProjectTbody');
     if (tbody) {
         let tableRowsHtml = '';
-        ['初中', '高中'].forEach(stageName => {
+        ['小学', '初中', '高中'].forEach(stageName => {
             const bucket = stageProjectStats[stageName];
-            // 检查该学段是否有测试数据
-            const hasStageData = projectKeys.some(p => bucket[p.key].testedCount > 0);
-            if (!hasStageData) return;
+            const activeProjects = projectKeys.filter(p => bucket[p.key].testedCount > 0);
+            if (activeProjects.length === 0) return;
 
-            projectKeys.forEach((p, idx) => {
+            const stageColor = stageName === '小学' ? '#2E7D32' : (stageName === '初中' ? '#1976D2' : '#E65100');
+            const stageBg = stageName === '小学' ? '#F1F8E9' : (stageName === '初中' ? '#F4F9FD' : '#FFF8F0');
+
+            activeProjects.forEach((p, idx) => {
                 const stat = bucket[p.key];
                 let itemAvg = stat.testedCount > 0 ? (stat.sumScore / stat.testedCount).toFixed(1) : "-";
                 let itemPass = stat.testedCount > 0 ? ((stat.passCount / stat.testedCount) * 100).toFixed(1) + '%' : "-";
                 let itemGoodVal = stat.testedCount > 0 ? ((stat.goodCount / stat.testedCount) * 100).toFixed(1) : null;
                 let itemGood = itemGoodVal !== null ? itemGoodVal + '%' : "-";
 
-                let goodColor = '#333';
-                if (itemGoodVal !== null) {
-                    if (parseFloat(itemGoodVal) >= 60) goodColor = '#2E7D32';
-                    else if (parseFloat(itemGoodVal) < 20) goodColor = '#D32F2F';
-                }
-
                 const stageTd = idx === 0 
-                    ? `<td rowspan="${projectKeys.length}" style="font-weight:800; font-size:14px; color:${stageName==='初中'?'#1976D2':'#E65100'}; background:${stageName==='初中'?'#F4F9FD':'#FFF8F0'}; vertical-align:middle; border-right:1px solid #e0e0e0;">${stageName}</td>` 
+                    ? `<td rowspan="${activeProjects.length}" style="font-weight:800; font-size:14px; color:${stageColor}; background:${stageBg}; vertical-align:middle; border-right:1px solid #e0e0e0;">${stageName}</td>` 
                     : '';
 
                 tableRowsHtml += `
-                    <tr style="${idx === projectKeys.length - 1 ? 'border-bottom:2px solid #cfd8dc;' : ''}">
+                    <tr style="${idx === activeProjects.length - 1 ? 'border-bottom:2px solid #cfd8dc;' : ''}">
                         ${stageTd}
                         <td style="font-weight:bold; text-align:left; padding-left:12px;">${stat.label}</td>
                         <td>${stat.testedCount}</td>
                         <td style="color:${itemAvg !== '-' && parseFloat(itemAvg) < 60 ? '#D32F2F' : '#2E7D32'}; font-weight:bold;">${itemAvg}</td>
                         <td>${itemPass}</td>
-                        <td style="color:${goodColor}; font-weight:${goodColor !== '#333' ? 'bold' : 'normal'};">${itemGood}</td>
+                        <td style="font-weight:bold;">${itemGood}</td>
                     </tr>
                 `;
             });
         });
 
-        if (!tableRowsHtml) {
-            tableRowsHtml = `<tr><td colspan="6" style="color:#999; padding:15px;">暂无统计数据</td></tr>`;
-        }
-        tbody.innerHTML = tableRowsHtml;
+        tbody.innerHTML = tableRowsHtml || `<tr><td colspan="6" style="color:#999; padding:15px;">暂无统计数据</td></tr>`;
     }
 
     renderStageGradeReportTable();
     renderGradeItemExcellenceTable();
 }
 
-    let stageAccordionState = { 'junior': false, 'senior': false };
-    function toggleStageAccordion(stageKey) {
-        stageAccordionState[stageKey] = !stageAccordionState[stageKey];
-        renderStageGradeReportTable();
-    }
+    let stageAccordionState = { 'primary': false, 'junior': false, 'senior': false };
+function toggleStageAccordion(stageKey) {
+    stageAccordionState[stageKey] = !stageAccordionState[stageKey];
+    renderStageGradeReportTable();
+}
 
-    function renderStageGradeReportTable() {
-        const tbody = document.getElementById('analysisStageGradeTbody');
-        if (!tbody) return;
+function renderStageGradeReportTable() {
+    const tbody = document.getElementById('analysisStageGradeTbody');
+    if (!tbody) return;
 
-        const selectedScope = document.getElementById('analysisClassSelect') ? document.getElementById('analysisClassSelect').value : 'ALL';
-        let classList = Object.keys(students);
-        if (selectedScope !== 'ALL') classList = [selectedScope];
+    const selectedScope = document.getElementById('analysisClassSelect') ? document.getElementById('analysisClassSelect').value : 'ALL';
+    let classList = Object.keys(students);
+    if (selectedScope !== 'ALL') classList = [selectedScope];
 
-        const baseGroup = () => ({
-            '男': { tot: 0, exc: 0, good: 0, pass: 0, fail: 0 },
-            '女': { tot: 0, exc: 0, good: 0, pass: 0, fail: 0 },
-            '总计': { tot: 0, exc: 0, good: 0, pass: 0, fail: 0 }
+    const baseGroup = () => ({
+        '男': { tot: 0, exc: 0, good: 0, pass: 0, fail: 0 },
+        '女': { tot: 0, exc: 0, good: 0, pass: 0, fail: 0 },
+        '总计': { tot: 0, exc: 0, good: 0, pass: 0, fail: 0 }
+    });
+
+    const gradeGroups = {
+        '一年级': baseGroup(), '二年级': baseGroup(), '三年级': baseGroup(),
+        '四年级': baseGroup(), '五年级': baseGroup(), '六年级': baseGroup(),
+        '初一': baseGroup(), '初二': baseGroup(), '初三': baseGroup(),
+        '高一': baseGroup(), '高二': baseGroup(), '高三': baseGroup()
+    };
+    const stageGroups = { '小学': baseGroup(), '初中': baseGroup(), '高中': baseGroup() };
+
+    classList.forEach(cls => {
+        const list = students[cls] || [];
+        list.forEach(s => {
+            if (s.exempt) return;
+            const fit = calculateFitnessTotalScore(s.scores || {}, cls, s.gender || '男', s.gradeId || '');
+            const rawG = s.grade || normalizeGrade(s.gradeId || cls);
+            const g = gradeGroups[rawG] ? rawG : null;
+            const gender = (s.gender === '女' || s.gender === '2') ? '女' : '男';
+
+            const updateStat = (grp) => {
+                grp[gender].tot++;
+                grp['总计'].tot++;
+                if (fit.level === '优秀') { grp[gender].exc++; grp['总计'].exc++; }
+                else if (fit.level === '良好') { grp[gender].good++; grp['总计'].good++; }
+                else if (fit.level === '及格') { grp[gender].pass++; grp['总计'].pass++; }
+                else { grp[gender].fail++; grp['总计'].fail++; }
+            };
+
+            if (g) {
+                updateStat(gradeGroups[g]);
+                if (g.includes('年级')) updateStat(stageGroups['小学']);
+                else if (g.includes('初')) updateStat(stageGroups['初中']);
+                else if (g.includes('高')) updateStat(stageGroups['高中']);
+            }
         });
+    });
 
-        const gradeGroups = {
-            '初一': baseGroup(), '初二': baseGroup(), '初三': baseGroup(),
-            '高一': baseGroup(), '高二': baseGroup(), '高三': baseGroup()
-        };
-        const stageGroups = { '初中': baseGroup(), '高中': baseGroup() };
+    const pct = (num, total) => total > 0 ? ((num / total) * 100).toFixed(2) : "0.00";
 
-        classList.forEach(cls => {
-            const list = students[cls] || [];
-            list.forEach(s => {
-                if (s.exempt) return;
-                const fit = calculateFitnessTotalScore(s.scores || {}, cls, s.gender || '男', s.gradeId || '');
-                const rawG = s.grade || normalizeGrade(s.gradeId || cls);
-                const g = gradeGroups[rawG] ? rawG : null;
-                const gender = (s.gender === '女' || s.gender === '2') ? '女' : '男';
+    const buildRowHtml = (gradeLabel, genderLabel, dataObj, isTotalRow = false, rowSpan = 0, isStage = false, stageKey = '') => {
+        let rowStyle = isTotalRow ? 'background:#fafafa; font-weight:bold;' : 'background:#fff;';
+        let tdGrade = '';
 
-                const updateStat = (grp) => {
-                    grp[gender].tot++;
-                    grp['总计'].tot++;
-                    if (fit.level === '优秀') {
-                        grp[gender].exc++;
-                        grp['总计'].exc++;
-                    } else if (fit.level === '良好') {
-                        grp[gender].good++;
-                        grp['总计'].good++;
-                    } else if (fit.level === '及格') {
-                        grp[gender].pass++;
-                        grp['总计'].pass++;
-                    } else {
-                        grp[gender].fail++;
-                        grp['总计'].fail++;
-                    }
-                };
+        if (rowSpan > 0) {
+            if (isStage) {
+                const isOpen = stageAccordionState[stageKey];
+                const icon = isOpen ? '－' : '＋';
+                tdGrade = `<td rowspan="${rowSpan}" style="vertical-align:middle; text-align:left; padding-left:14px; font-weight:bold; border-right:1px solid #eee;">
+                    <button onclick="toggleStageAccordion('${stageKey}')" style="background:none; border:1px solid #ddd; border-radius:3px; padding:0 4px; font-size:11px; cursor:pointer; color:#555; margin-right:6px; line-height:16px;">${icon}</button>
+                    ${gradeLabel}
+                </td>`;
+            } else {
+                tdGrade = `<td rowspan="${rowSpan}" style="vertical-align:middle; text-align:left; padding-left:26px; font-weight:bold; border-right:1px solid #eee;">${gradeLabel}</td>`;
+            }
+        }
 
-                if (g) {
-                    updateStat(gradeGroups[g]);
-                    if (g.includes('初')) updateStat(stageGroups['初中']);
-                    if (g.includes('高')) updateStat(stageGroups['高中']);
-                }
+        const excelRate = pct(dataObj.exc + dataObj.good, dataObj.tot);
+
+        return `
+            <tr style="${rowStyle} border-bottom:1px solid #f0f0f0;">
+                ${tdGrade}
+                <td style="color:${genderLabel==='总计'?'#000':'#666'};">${genderLabel}</td>
+                <td>${dataObj.tot}</td>
+                <td style="color:#1976D2; font-weight:bold;">${excelRate}</td>
+                <td>${pct(dataObj.exc, dataObj.tot)}</td>
+                <td style="color:#2E7D32;">${pct(dataObj.good, dataObj.tot)}</td>
+                <td style="color:#E65100;">${pct(dataObj.pass, dataObj.tot)}</td>
+                <td style="color:${parseFloat(pct(dataObj.fail, dataObj.tot))>0 ? '#D32F2F' : '#333'}; font-weight:${parseFloat(pct(dataObj.fail, dataObj.tot))>0 ? 'bold':'normal'};">${pct(dataObj.fail, dataObj.tot)}</td>
+            </tr>
+        `;
+    };
+
+    const buildSectionHtml = (title, dataGroup, isStage = false, stageKey = '') => {
+        let html = '';
+        html += buildRowHtml(title, '男', dataGroup['男'], false, 3, isStage, stageKey);
+        html += buildRowHtml(title, '女', dataGroup['女'], false, 0);
+        html += buildRowHtml(title, '总计', dataGroup['总计'], true, 0);
+        return html;
+    };
+
+    let finalTbodyHtml = '';
+    
+    // 1. 小学段
+    if (stageGroups['小学']['总计'].tot > 0) {
+        finalTbodyHtml += buildSectionHtml('小学', stageGroups['小学'], true, 'primary');
+        if (stageAccordionState['primary']) {
+            ['一年级', '二年级', '三年级', '四年级', '五年级', '六年级'].forEach(g => {
+                if (gradeGroups[g]['总计'].tot > 0) finalTbodyHtml += buildSectionHtml(g, gradeGroups[g]);
             });
-        });
-
-        const pct = (num, total) => total > 0 ? ((num / total) * 100).toFixed(2) : "0.00";
-
-        const buildRowHtml = (gradeLabel, genderLabel, dataObj, isTotalRow = false, rowSpan = 0, isStage = false, stageKey = '') => {
-            let rowStyle = isTotalRow ? 'background:#fafafa; font-weight:bold;' : 'background:#fff;';
-            let tdGrade = '';
-
-            if (rowSpan > 0) {
-                if (isStage) {
-                    const isOpen = stageAccordionState[stageKey];
-                    const icon = isOpen ? '－' : '＋';
-                    tdGrade = `<td rowspan="${rowSpan}" style="vertical-align:middle; text-align:left; padding-left:14px; font-weight:bold; border-right:1px solid #eee;">
-                        <button onclick="toggleStageAccordion('${stageKey}')" style="background:none; border:1px solid #ddd; border-radius:3px; padding:0 4px; font-size:11px; cursor:pointer; color:#555; margin-right:6px; line-height:16px;">${icon}</button>
-                        ${gradeLabel}
-                    </td>`;
-                } else {
-                    tdGrade = `<td rowspan="${rowSpan}" style="vertical-align:middle; text-align:left; padding-left:26px; font-weight:bold; border-right:1px solid #eee;">${gradeLabel}</td>`;
-                }
-            }
-
-            const excelRate = pct(dataObj.exc + dataObj.good, dataObj.tot);
-
-            return `
-                <tr style="${rowStyle} border-bottom:1px solid #f0f0f0;">
-                    ${tdGrade}
-                    <td style="color:${genderLabel==='总计'?'#000':'#666'};">${genderLabel}</td>
-                    <td>${dataObj.tot}</td>
-                    <td style="color:#1976D2; font-weight:bold;">${excelRate}</td>
-                    <td style="color:${dataObj.tot>0 && parseFloat(pct(dataObj.exc, dataObj.tot))>0 ? '#0D47A1' : '#333'};">${pct(dataObj.exc, dataObj.tot)}</td>
-                    <td style="color:#2E7D32;">${pct(dataObj.good, dataObj.tot)}</td>
-                    <td style="color:#E65100;">${pct(dataObj.pass, dataObj.tot)}</td>
-                    <td style="color:${parseFloat(pct(dataObj.fail, dataObj.tot))>0 ? '#D32F2F' : '#333'}; font-weight:${parseFloat(pct(dataObj.fail, dataObj.tot))>0 ? 'bold':'normal'};">${pct(dataObj.fail, dataObj.tot)}</td>
-                </tr>
-            `;
-        };
-
-        const buildSectionHtml = (title, dataGroup, isStage = false, stageKey = '') => {
-            let html = '';
-            html += buildRowHtml(title, '男', dataGroup['男'], false, 3, isStage, stageKey);
-            html += buildRowHtml(title, '女', dataGroup['女'], false, 0);
-            html += buildRowHtml(title, '总计', dataGroup['总计'], true, 0);
-            return html;
-        };
-
-        let finalTbodyHtml = '';
-        if (stageGroups['初中']['总计'].tot > 0) {
-            finalTbodyHtml += buildSectionHtml('初中', stageGroups['初中'], true, 'junior');
-            if (stageAccordionState['junior']) {
-                ['初一', '初二', '初三'].forEach(g => {
-                    if (gradeGroups[g]['总计'].tot > 0) finalTbodyHtml += buildSectionHtml(g, gradeGroups[g]);
-                });
-            }
         }
-
-        if (stageGroups['高中']['总计'].tot > 0) {
-            finalTbodyHtml += buildSectionHtml('高中', stageGroups['高中'], true, 'senior');
-            if (stageAccordionState['senior']) {
-                ['高一', '高二', '高三'].forEach(g => {
-                    if (gradeGroups[g]['总计'].tot > 0) finalTbodyHtml += buildSectionHtml(g, gradeGroups[g]);
-                });
-            }
-        }
-
-        if (!finalTbodyHtml) {
-            finalTbodyHtml = '<tr><td colspan="8" style="color:#999; padding:15px;">暂无匹配年级统计数据</td></tr>';
-        }
-        tbody.innerHTML = finalTbodyHtml;
     }
+    // 2. 初中段
+    if (stageGroups['初中']['总计'].tot > 0) {
+        finalTbodyHtml += buildSectionHtml('初中', stageGroups['初中'], true, 'junior');
+        if (stageAccordionState['junior']) {
+            ['初一', '初二', '初三'].forEach(g => {
+                if (gradeGroups[g]['总计'].tot > 0) finalTbodyHtml += buildSectionHtml(g, gradeGroups[g]);
+            });
+        }
+    }
+    // 3. 高中段
+    if (stageGroups['高中']['总计'].tot > 0) {
+        finalTbodyHtml += buildSectionHtml('高中', stageGroups['高中'], true, 'senior');
+        if (stageAccordionState['senior']) {
+            ['高一', '高二', '高三'].forEach(g => {
+                if (gradeGroups[g]['总计'].tot > 0) finalTbodyHtml += buildSectionHtml(g, gradeGroups[g]);
+            });
+        }
+    }
+
+    tbody.innerHTML = finalTbodyHtml || '<tr><td colspan="8" style="color:#999; padding:15px;">暂无匹配年级统计数据</td></tr>';
+}
 
     let gradeClassesAccordionState = {
-        '初一': false, '初二': false, '初三': false,
-        '高一': false, '高二': false, '高三': false
-    };
+    '一年级': false, '二年级': false, '三年级': false, '四年级': false, '五年级': false, '六年级': false,
+    '初一': false, '初二': false, '初三': false,
+    '高一': false, '高二': false, '高三': false
+};
 
     function toggleGradeClassesAccordion(gradeName) {
         gradeClassesAccordionState[gradeName] = !gradeClassesAccordionState[gradeName];
         renderGradeItemExcellenceTable();
     }
 
-    function renderGradeItemExcellenceTable() {
-        const tbody = document.getElementById('analysisGradeItemExcelTbody');
-        if (!tbody) return;
+function renderGradeItemExcellenceTable() {
+    const tbody = document.getElementById('analysisGradeItemExcelTbody');
+    if (!tbody) return;
 
-        const selectedScope = document.getElementById('analysisClassSelect') ? document.getElementById('analysisClassSelect').value : 'ALL';
-        let classList = Object.keys(students);
-        if (selectedScope !== 'ALL') classList = [selectedScope];
+    const selectedScope = document.getElementById('analysisClassSelect') ? document.getElementById('analysisClassSelect').value : 'ALL';
+    let classList = Object.keys(students);
+    if (selectedScope !== 'ALL') classList = [selectedScope];
 
-        const standardGrades = ['初一', '初二', '初三', '高一', '高二', '高三'];
-        const itemKeys = ['50米', '立定跳远', '坐位体前屈', '肺活量', 'runL', 'str', 'bmi'];
+    const standardGrades = [
+        '一年级', '二年级', '三年级', '四年级', '五年级', '六年级',
+        '初一', '初二', '初三', '高一', '高二', '高三'
+    ];
+    const itemKeys = ['50米', '立定跳远', '坐位体前屈', '肺活量', 'runL', 'str', 'bmi'];
 
-        const createStatNode = () => {
-            const node = { tot: 0 };
-            itemKeys.forEach(k => { node[k] = { c: 0, t: 0 }; });
-            return node;
-        };
-
-        const gradeData = {};
-        standardGrades.forEach(g => {
-            gradeData[g] = {
-                summary: { '男': createStatNode(), '女': createStatNode() },
-                classes: {}
-            };
-        });
-
-        const activeGrades = new Set();
-
-        classList.forEach(cls => {
-            const list = students[cls] || [];
-            list.forEach(s => {
-                if (s.exempt) return;
-                const sScores = s.scores || {};
-                const g = s.grade || normalizeGrade(s.gradeId || cls);
-                const gender = (s.gender === '女' || s.gender === '2') ? '女' : '男';
-
-                if (!gradeData[g]) return;
-                activeGrades.add(g);
-
-                if (!gradeData[g].classes[cls]) {
-                    gradeData[g].classes[cls] = { '男': createStatNode(), '女': createStatNode() };
-                }
-
-                const sumGrp = gradeData[g].summary[gender];
-                const clsGrp = gradeData[g].classes[cls][gender];
-
-                sumGrp.tot++;
-                clsGrp.tot++;
-
-                let currentBmiVal = sScores["体重指数(BMI)"] || sScores["BMI"] || sScores["体重指数"] || '';
-                if (!currentBmiVal && sScores["身高"] && sScores["体重"]) {
-                    let h = parseFloat(sScores["身高"]);
-                    let w = parseFloat(sScores["体重"]);
-                    if (h > 0 && w > 0) {
-                        let hM = h > 3 ? (h / 100) : h;
-                        currentBmiVal = (w / (hM * hM)).toFixed(1);
-                    }
-                }
-
-                itemKeys.forEach(k => {
-                    let val = null;
-                    let projName = k;
-
-                    if (k === 'bmi') {
-                        val = currentBmiVal;
-                        projName = '体重指数(BMI)';
-                    } else if (k === 'runL') {
-                        val = gender === '男' ? (sScores['1000米'] || sScores['耐力跑'] || sScores['runL']) 
-                                              : (sScores['800米'] || sScores['耐力跑'] || sScores['runL']);
-                        projName = gender === '男' ? '1000米' : '800米';
-                    } else if (k === 'str') {
-                        val = gender === '男' ? (sScores['引体向上'] || sScores['引体'] || sScores['str']) 
-                                              : (sScores['仰卧起坐'] || sScores['仰卧'] || sScores['str']);
-                        projName = gender === '男' ? '引体向上' : '仰卧起坐';
-                    } else {
-                        val = sScores[k];
-                    }
-
-                    if (val !== undefined && val !== null && String(val).trim() !== '' && String(val).trim() !== '-') {
-                        let pts = queryStandardScore(projName, val, cls, gender, s.gradeId || '');
-                        if (pts !== null && !isNaN(pts)) {
-                            sumGrp[k].t++;
-                            clsGrp[k].t++;
-                            if (pts >= 80) {
-                                sumGrp[k].c++;
-                                clsGrp[k].c++;
-                            }
-                        }
-                    }
-                });
-            });
-        });
-
-        const fmtCell = (c, t) => {
-    if (!t || t === 0) return '<span style="color:#aaa;">-</span>';
-    const rate = ((c / t) * 100).toFixed(1);
-    const numRate = parseFloat(rate);
-    let color = '#333';
-    if (numRate >= 60) color = '#2E7D32';      // >=60% 绿色
-    else if (numRate < 20) color = '#D32F2F';  // <20% 红色
-
-    return `<span style="font-weight:bold; color:${color};">${c}</span> <span style="font-size:11px; color:${color}; font-weight:${color !== '#333' ? 'bold' : 'normal'};">(${rate}%)</span>`;
-};
-
-        let html = '';
-        standardGrades.forEach(g => {
-            if (!activeGrades.has(g)) return;
-
-            const sumM = gradeData[g].summary['男'];
-            const sumF = gradeData[g].summary['女'];
-            const isOpen = gradeClassesAccordionState[g];
-            const icon = isOpen ? '－' : '＋';
-
-            html += `
-                <tr style="border-top:2px solid #cfd8dc; background:#fff;">
-                    <td rowspan="2" style="vertical-align:middle; text-align:left; padding-left:10px; font-weight:bold; background:#fafafa; border-right:1px solid #eee;">
-                        <button onclick="toggleGradeClassesAccordion('${g}')" style="background:#fff; border:1px solid #FF9800; color:#E65100; border-radius:4px; padding:1px 5px; font-size:11px; cursor:pointer; margin-right:4px; font-weight:bold; line-height:14px;">${icon}</button>
-                        <span>${g}</span>
-                    </td>
-                    <td style="color:#1976D2; font-weight:bold; background:#f4f9fd;">男</td>
-                    <td style="font-weight:bold;">${sumM.tot}</td>
-                    <td>${fmtCell(sumM['50米'].c, sumM['50米'].t)}</td>
-                    <td>${fmtCell(sumM['立定跳远'].c, sumM['立定跳远'].t)}</td>
-                    <td>${fmtCell(sumM['坐位体前屈'].c, sumM['坐位体前屈'].t)}</td>
-                    <td>${fmtCell(sumM['肺活量'].c, sumM['肺活量'].t)}</td>
-                    <td>${fmtCell(sumM['runL'].c, sumM['runL'].t)}</td>
-                    <td>${fmtCell(sumM['str'].c, sumM['str'].t)}</td>
-                    <td>${fmtCell(sumM['bmi'].c, sumM['bmi'].t)}</td>
-                </tr>
-                <tr style="background:#fff; border-bottom:1px solid #e0e0e0;">
-                    <td style="color:#E91E63; font-weight:bold; background:#fdf4f7;">女</td>
-                    <td style="font-weight:bold;">${sumF.tot}</td>
-                    <td>${fmtCell(sumF['50米'].c, sumF['50米'].t)}</td>
-                    <td>${fmtCell(sumF['立定跳远'].c, sumF['立定跳远'].t)}</td>
-                    <td>${fmtCell(sumF['坐位体前屈'].c, sumF['坐位体前屈'].t)}</td>
-                    <td>${fmtCell(sumF['肺活量'].c, sumF['肺活量'].t)}</td>
-                    <td>${fmtCell(sumF['runL'].c, sumF['runL'].t)}</td>
-                    <td>${fmtCell(sumF['str'].c, sumF['str'].t)}</td>
-                    <td>${fmtCell(sumF['bmi'].c, sumF['bmi'].t)}</td>
-                </tr>
-            `;
-
-            if (isOpen) {
-                const extractClassNumber = (str) => {
-        const m = String(str).match(/(\d+)\s*班/) || String(str).match(/(\d+)\D*$/);
-        return m ? parseInt(m[1], 10) : 999;
+    const createStatNode = () => {
+        const node = { tot: 0 };
+        itemKeys.forEach(k => { node[k] = { c: 0, t: 0 }; });
+        return node;
     };
 
-    const classNames = Object.keys(gradeData[g].classes).sort((a, b) => {
-        const numA = extractClassNumber(a);
-        const numB = extractClassNumber(b);
-        if (numA !== numB) return numA - numB;
-        return a.localeCompare(b, 'zh-CN');
+    const gradeData = {};
+    standardGrades.forEach(g => {
+        gradeData[g] = {
+            summary: { '男': createStatNode(), '女': createStatNode() },
+            classes: {}
+        };
     });
 
-    classNames.forEach(cName => {
-        const cM = gradeData[g].classes[cName]['男'];
-        const cF = gradeData[g].classes[cName]['女'];
+    const activeGrades = new Set();
+
+    classList.forEach(cls => {
+        const list = students[cls] || [];
+        list.forEach(s => {
+            if (s.exempt) return;
+            const sScores = s.scores || {};
+            const g = s.grade || normalizeGrade(s.gradeId || cls);
+            const gender = (s.gender === '女' || s.gender === '2') ? '女' : '男';
+
+            if (!gradeData[g]) return;
+            activeGrades.add(g);
+
+            if (!gradeData[g].classes[cls]) {
+                gradeData[g].classes[cls] = { '男': createStatNode(), '女': createStatNode() };
+            }
+
+            const sumGrp = gradeData[g].summary[gender];
+            const clsGrp = gradeData[g].classes[cls][gender];
+
+            sumGrp.tot++;
+            clsGrp.tot++;
+
+            let currentBmiVal = sScores["体重指数(BMI)"] || sScores["BMI"] || sScores["体重指数"] || '';
+            if (!currentBmiVal && sScores["身高"] && sScores["体重"]) {
+                let h = parseFloat(sScores["身高"]), w = parseFloat(sScores["体重"]);
+                if (h > 0 && w > 0) {
+                    let hM = h > 3 ? (h / 100) : h;
+                    currentBmiVal = (w / (hM * hM)).toFixed(1);
+                }
+            }
+
+            const isPrimary = g.includes('年级');
+
+            itemKeys.forEach(k => {
+                let val = null;
+                let projName = k;
+
+                if (k === 'bmi') {
+                    val = currentBmiVal;
+                    projName = '体重指数(BMI)';
+                } else if (k === 'runL') {
+                    if (isPrimary) {
+                        val = sScores['50米x8往返跑'] || sScores['50米×8往返跑'] || sScores['往返跑'];
+                        projName = '50米x8往返跑';
+                    } else {
+                        val = gender === '男' ? (sScores['1000米'] || sScores['耐力跑']) : (sScores['800米'] || sScores['耐力跑']);
+                        projName = gender === '男' ? '1000米' : '800米';
+                    }
+                } else if (k === 'str') {
+                    if (isPrimary) {
+                        val = sScores['仰卧起坐'] || sScores['仰卧'];
+                        projName = '仰卧起坐';
+                    } else {
+                        val = gender === '男' ? (sScores['引体向上'] || sScores['引体']) : (sScores['仰卧起坐'] || sScores['仰卧']);
+                        projName = gender === '男' ? '引体向上' : '仰卧起坐';
+                    }
+                } else if (k === '立定跳远') {
+                    // 小学用“1分钟跳绳”作为弹跳素质统计
+                    if (isPrimary) {
+                        val = sScores['一分钟跳绳'] || sScores['跳绳'];
+                        projName = '一分钟跳绳';
+                    } else {
+                        val = sScores['立定跳远'];
+                        projName = '立定跳远';
+                    }
+                } else {
+                    val = sScores[k];
+                }
+
+                if (val !== undefined && val !== null && String(val).trim() !== '' && String(val).trim() !== '-') {
+                    let pts = queryStandardScore(projName, val, cls, gender, s.gradeId || '');
+                    if (pts !== null && !isNaN(pts)) {
+                        sumGrp[k].t++;
+                        clsGrp[k].t++;
+                        if (pts >= 80) {
+                            sumGrp[k].c++;
+                            clsGrp[k].c++;
+                        }
+                    }
+                }
+            });
+        });
+    });
+
+    const fmtCell = (c, t) => {
+        if (!t || t === 0) return '<span style="color:#aaa;">-</span>';
+        const rate = ((c / t) * 100).toFixed(1);
+        const numRate = parseFloat(rate);
+        let color = '#333';
+        if (numRate >= 60) color = '#2E7D32';
+        else if (numRate < 20) color = '#D32F2F';
+
+        return `<span style="font-weight:bold; color:${color};">${c}</span> <span style="font-size:11px; color:${color}; font-weight:${color !== '#333' ? 'bold' : 'normal'};">(${rate}%)</span>`;
+    };
+
+    let html = '';
+    standardGrades.forEach(g => {
+        if (!activeGrades.has(g)) return;
+
+        const sumM = gradeData[g].summary['男'];
+        const sumF = gradeData[g].summary['女'];
+        const isOpen = gradeClassesAccordionState[g];
+        const icon = isOpen ? '－' : '＋';
 
         html += `
-            <tr style="background:#fcfcfc; border-top:1px dashed #e0e0e0;">
-                <td rowspan="2" style="vertical-align:middle; text-align:left; padding:6px 8px 6px 14px; font-size:13px; font-weight:700; color:#263238; background:#f5f7f8; border-right:1px solid #eee; white-space:nowrap;">
-                    <span style="color:#FF9800; margin-right:3px; font-weight:bold;"></span>${cName}
+            <tr style="border-top:2px solid #cfd8dc; background:#fff;">
+                <td rowspan="2" style="vertical-align:middle; text-align:left; padding-left:10px; font-weight:bold; background:#fafafa; border-right:1px solid #eee;">
+                    <button onclick="toggleGradeClassesAccordion('${g}')" style="background:#fff; border:1px solid #FF9800; color:#E65100; border-radius:4px; padding:1px 5px; font-size:11px; cursor:pointer; margin-right:4px; font-weight:bold; line-height:14px;">${icon}</button>
+                    <span>${g}</span>
                 </td>
-                <td style="font-size:12px; color:#1976D2; font-weight:bold; background:#f9fbfe;">男</td>
-                <td style="font-weight:600;">${cM.tot}</td>
-                <td>${fmtCell(cM['50米'].c, cM['50米'].t)}</td>
-                <td>${fmtCell(cM['立定跳远'].c, cM['立定跳远'].t)}</td>
-                <td>${fmtCell(cM['坐位体前屈'].c, cM['坐位体前屈'].t)}</td>
-                <td>${fmtCell(cM['肺活量'].c, cM['肺活量'].t)}</td>
-                <td>${fmtCell(cM['runL'].c, cM['runL'].t)}</td>
-                <td>${fmtCell(cM['str'].c, cM['str'].t)}</td>
-                <td>${fmtCell(cM['bmi'].c, cM['bmi'].t)}</td>
+                <td style="color:#1976D2; font-weight:bold; background:#f4f9fd;">男</td>
+                <td style="font-weight:bold;">${sumM.tot}</td>
+                <td>${fmtCell(sumM['50米'].c, sumM['50米'].t)}</td>
+                <td>${fmtCell(sumM['立定跳远'].c, sumM['立定跳远'].t)}</td>
+                <td>${fmtCell(sumM['坐位体前屈'].c, sumM['坐位体前屈'].t)}</td>
+                <td>${fmtCell(sumM['肺活量'].c, sumM['肺活量'].t)}</td>
+                <td>${fmtCell(sumM['runL'].c, sumM['runL'].t)}</td>
+                <td>${fmtCell(sumM['str'].c, sumM['str'].t)}</td>
+                <td>${fmtCell(sumM['bmi'].c, sumM['bmi'].t)}</td>
             </tr>
-            <tr style="background:#fcfcfc; border-bottom:1px solid #eceff1;">
-                <td style="font-size:12px; color:#E91E63; font-weight:bold; background:#fef9fb;">女</td>
-                <td style="font-weight:600;">${cF.tot}</td>
-                <td>${fmtCell(cF['50米'].c, cF['50米'].t)}</td>
-                <td>${fmtCell(cF['立定跳远'].c, cF['立定跳远'].t)}</td>
-                <td>${fmtCell(cF['坐位体前屈'].c, cF['坐位体前屈'].t)}</td>
-                <td>${fmtCell(cF['肺活量'].c, cF['肺活量'].t)}</td>
-                <td>${fmtCell(cF['runL'].c, cF['runL'].t)}</td>
-                <td>${fmtCell(cF['str'].c, cF['str'].t)}</td>
-                <td>${fmtCell(cF['bmi'].c, cF['bmi'].t)}</td>
+            <tr style="background:#fff; border-bottom:1px solid #e0e0e0;">
+                <td style="color:#E91E63; font-weight:bold; background:#fdf4f7;">女</td>
+                <td style="font-weight:bold;">${sumF.tot}</td>
+                <td>${fmtCell(sumF['50米'].c, sumF['50米'].t)}</td>
+                <td>${fmtCell(sumF['立定跳远'].c, sumF['立定跳远'].t)}</td>
+                <td>${fmtCell(sumF['坐位体前屈'].c, sumF['坐位体前屈'].t)}</td>
+                <td>${fmtCell(sumF['肺活量'].c, sumF['肺活量'].t)}</td>
+                <td>${fmtCell(sumF['runL'].c, sumF['runL'].t)}</td>
+                <td>${fmtCell(sumF['str'].c, sumF['str'].t)}</td>
+                <td>${fmtCell(sumF['bmi'].c, sumF['bmi'].t)}</td>
             </tr>
         `;
-    });
-}
-});
-        if (!html) {
-            html = '<tr><td colspan="10" style="color:#999; padding:15px;">暂无匹配数据</td></tr>';
+
+        if (isOpen) {
+            const extractClassNumber = (str) => {
+                const m = String(str).match(/(\d+)\s*班/) || String(str).match(/(\d+)\D*$/);
+                return m ? parseInt(m[1], 10) : 999;
+            };
+
+            const classNames = Object.keys(gradeData[g].classes).sort((a, b) => {
+                const numA = extractClassNumber(a);
+                const numB = extractClassNumber(b);
+                if (numA !== numB) return numA - numB;
+                return a.localeCompare(b, 'zh-CN');
+            });
+
+            classNames.forEach(cName => {
+                const cM = gradeData[g].classes[cName]['男'];
+                const cF = gradeData[g].classes[cName]['女'];
+
+                html += `
+                    <tr style="background:#fcfcfc; border-top:1px dashed #e0e0e0;">
+                        <td rowspan="2" style="vertical-align:middle; text-align:left; padding:6px 8px 6px 14px; font-size:13px; font-weight:700; color:#263238; background:#f5f7f8; border-right:1px solid #eee; white-space:nowrap;">
+                            <span>${cName}</span>
+                        </td>
+                        <td style="font-size:12px; color:#1976D2; font-weight:bold; background:#f9fbfe;">男</td>
+                        <td style="font-weight:600;">${cM.tot}</td>
+                        <td>${fmtCell(cM['50米'].c, cM['50米'].t)}</td>
+                        <td>${fmtCell(cM['立定跳远'].c, cM['立定跳远'].t)}</td>
+                        <td>${fmtCell(cM['坐位体前屈'].c, cM['坐位体前屈'].t)}</td>
+                        <td>${fmtCell(cM['肺活量'].c, cM['肺活量'].t)}</td>
+                        <td>${fmtCell(cM['runL'].c, cM['runL'].t)}</td>
+                        <td>${fmtCell(cM['str'].c, cM['str'].t)}</td>
+                        <td>${fmtCell(cM['bmi'].c, cM['bmi'].t)}</td>
+                    </tr>
+                    <tr style="background:#fcfcfc; border-bottom:1px solid #eceff1;">
+                        <td style="font-size:12px; color:#E91E63; font-weight:bold; background:#fef9fb;">女</td>
+                        <td style="font-weight:600;">${cF.tot}</td>
+                        <td>${fmtCell(cF['50米'].c, cF['50米'].t)}</td>
+                        <td>${fmtCell(cF['立定跳远'].c, cF['立定跳远'].t)}</td>
+                        <td>${fmtCell(cF['坐位体前屈'].c, cF['坐位体前屈'].t)}</td>
+                        <td>${fmtCell(cF['肺活量'].c, cF['肺活量'].t)}</td>
+                        <td>${fmtCell(cF['runL'].c, cF['runL'].t)}</td>
+                        <td>${fmtCell(cF['str'].c, cF['str'].t)}</td>
+                        <td>${fmtCell(cF['bmi'].c, cF['bmi'].t)}</td>
+                    </tr>
+                `;
+            });
         }
-        tbody.innerHTML = html;
-    }
+    });
+
+    tbody.innerHTML = html || '<tr><td colspan="10" style="color:#999; padding:15px;">暂无匹配数据</td></tr>';
+}
     function 扩大(val) { return val; }
 
     // 新增：强制转换为国家体测标准 2位数字年级编号 (小学11-16, 初中21-23, 高中31-33)
@@ -3632,10 +3672,14 @@ function clearPendingTargetHighlight() {
 
     function formatTimeNationalStandard(val) {
     if (!val || val === '' || val === '-') return null;
-    const totalSec = parseTime(val); // 直接复用系统精准解析秒数逻辑
+    const totalSec = parseTime(val);
     if (totalSec <= 0) return null;
+
     const minutes = Math.floor(totalSec / 60);
     const seconds = Math.round(totalSec % 60);
+    if (minutes === 0) {
+        return `${seconds}″`;
+    }
     return `${minutes}′${String(seconds).padStart(2, '0')}″`;
 }
 
@@ -3647,75 +3691,247 @@ function clearPendingTargetHighlight() {
         return NATION_MAP[s] || '1';
     }
 
-    function runSmartCheckOnReport() {
-        let classList = Object.keys(students);
-        if (classList.length === 0) { alert('暂无体测数据！'); return; }
-
-        let cleanedUnitsCount = 0;
-        let warningLogs = [];
-
-        classList.forEach(cls => {
-            students[cls].forEach(s => {
-                const sc = s.scores || {};
-                
-                ['身高', '体重', '肺活量', '50米', '立定跳远', '坐位体前屈', '仰卧起坐', '引体向上', '1000米', '800米'].forEach(k => {
-    if (sc[k]) {
-        let original = String(sc[k]);
-        let cleaned = original;
-        if (k === '1000米' || k === '800米') {
-            // 长跑专门清洗为 M.SS 标准两位秒格式（如 3′05″12 -> 3.05）
-            const sec = parseTime(original);
-            if (sec > 0) {
-                cleaned = `${Math.floor(sec / 60)}.${String(sec % 60).padStart(2, '0')}`;
-            }
-        } else {
-            cleaned = original.replace(/['"”’‘：:，,]/g, '.').replace(/[^\d.-]/g, '').replace(/\.+$/g, '');
-        }
-        if (cleaned !== original) {
-            sc[k] = cleaned;
-            cleanedUnitsCount++;
-        }
+    // 1. 升级版智能校验：支持结构化记录异常并弹出可点击的列表
+function runSmartCheckOnReport() {
+    let classList = Object.keys(students);
+    if (classList.length === 0) { 
+        alert('暂无体测数据！'); 
+        return; 
     }
-});
 
-                if (sc['身高']) {
-                    let h = parseFloat(sc['身高']);
-                    if (h > 0 && h < 3) { sc['身高'] = (h * 100).toFixed(1); cleanedUnitsCount++; }
+    let cleanedUnitsCount = 0;
+    let autoFixedDotsCount = 0;
+    let warningItems = []; // 存放结构化错误对象
+
+    classList.forEach(cls => {
+        const rawG = normalizeGrade(cls);
+        const isPrimary = rawG.includes('年级') || cls.includes('小');
+
+        students[cls].forEach(s => {
+            const sc = s.scores || {};
+            const isMale = (s.gender === '男' || s.gender === '1');
+
+            // 1. 基础符号清洗与格式规整
+            ['身高', '体重', '肺活量', '50米', '立定跳远', '坐位体前屈', '仰卧起坐', '引体向上', '1000米', '800米', '50米x8往返跑', '一分钟跳绳'].forEach(k => {
+                let actualK = sc[k] !== undefined ? k : (k === '一分钟跳绳' && sc['跳绳'] !== undefined ? '跳绳' : null);
+                if (actualK && sc[actualK] !== undefined && sc[actualK] !== null) {
+                    let original = String(sc[actualK]).trim();
+                    let cleaned = original;
+
+                    if (actualK === '1000米' || actualK === '800米' || actualK === '50米x8往返跑') {
+                        // 1. 如果是 3~4 位无小数点整数（如 204、152），修复为 2.04、1.52
+                        if (/^\d{3,4}$/.test(original)) {
+                            let sec = parseInt(original.slice(-2), 10);
+                            let min = parseInt(original.slice(0, -2), 10);
+                            if (sec < 60 && min < 15) {
+                                cleaned = `${min}.${String(sec).padStart(2, '0')}`;
+                                autoFixedDotsCount++;
+                            }
+                        } else {
+                            // 2. 如果包含小数点或本身是纯秒数
+                            let totalSec = parseTime(original);
+                            if (totalSec > 0) {
+                                if (totalSec < 60) {
+                                    // 核心修复：小于60秒时保持秒数原样（如 58、59.45），绝不转成 0.58！
+                                    cleaned = original;
+                                } else {
+                                    // 满 60 秒以上才规范化为 M.SS 格式
+                                    let m = Math.floor(totalSec / 60);
+                                    let sRemain = Math.round(totalSec % 60);
+                                    cleaned = `${m}.${String(sRemain).padStart(2, '0')}`;
+                                }
+                            }
+                        }
+                    }else {
+                        cleaned = original.replace(/['"”’‘：:，,]/g, '.').replace(/[^\d.-]/g, '').replace(/\.+$/g, '');
+                    }
+
+                    if (cleaned !== original) {
+                        sc[actualK] = cleaned;
+                        cleanedUnitsCount++;
+                    }
                 }
-                if (sc['立定跳远']) {
+            });
+
+            // 辅助登记异常函数
+            const addWarn = (proj, val, msg) => {
+                warningItems.push({
+                    className: cls,
+                    studentName: s.name,
+                    gender: s.gender,
+                    project: proj,
+                    value: val,
+                    message: msg
+                });
+            };
+
+            // 2. 详细异常检测
+            // 身高
+            if (sc['身高']) {
+                let h = parseFloat(sc['身高']);
+                if (h > 0 && h < 3) { sc['身高'] = (h * 100).toFixed(1); cleanedUnitsCount++; }
+                else if (h < 90 || h > 215) addWarn('身高', sc['身高'], `数值为 ${h}cm，超出常规范围 (90~215)`);
+            }
+            // 体重
+            if (sc['体重']) {
+                let w = parseFloat(sc['体重']);
+                if (w < 15 || w > 140) addWarn('体重', sc['体重'], `数值为 ${w}kg，超出常规范围 (15~140)`);
+            }
+            
+            if (sc['立定跳远']) {
                     let j = parseFloat(sc['立定跳远']);
                     if (j > 0 && j < 4) { sc['立定跳远'] = Math.round(j * 100); cleanedUnitsCount++; }
                 }
 
-                const check = (projName, min, max, canZero = false) => {
-                    let v = sc[projName];
-                    if (v !== undefined && v !== null && v !== '') {
-                        let num = parseFloat(v);
-                        if (!canZero && num === 0) warningLogs.push(`【${cls} - ${s.name}】${projName} 为 0 值`);
-                        else if (num < min || num > max) warningLogs.push(`【${cls} - ${s.name}】${projName} 超出正常范围 (${min}~${max})`);
-                    }
-                };
+            // 肺活量
+            let lungVal = sc['肺活量'];
+            if (lungVal !== undefined && lungVal !== null && String(lungVal).trim() !== '') {
+                let numL = parseFloat(lungVal);
+                if (numL < 500 || numL > 7500) {
+                    addWarn('肺活量', lungVal, `数值为 ${lungVal}ml，超出正常范围 (500~7500)`);
+                }
+            }
+           
+            // 仰卧起坐
+            let situpVal = sc['仰卧起坐'] || sc['仰卧'];
+            if (situpVal !== undefined && situpVal !== null && String(situpVal).trim() !== '') {
+                let strVal = String(situpVal).trim();
+                let numVal = parseFloat(strVal);
+                if (strVal.includes('.')) {
+                    addWarn('仰卧起坐', strVal, `录入了小数 "${strVal}" 次，次数必须为整数`);
+                } else if (numVal > 95) {
+                    addWarn('仰卧起坐', strVal, `录入了 "${strVal}" 次，疑似多输了一位`);
+                }
+            }
 
-                check('身高', 100, 210);
-                check('体重', 20, 130);
-                check('肺活量', 500, 7500);
-                check('50米', 5.5, 15);
-                check('立定跳远', 90, 320);
-                check('坐位体前屈', -20, 40, true);
-                if (s.gender === '女') check('仰卧起坐', 3, 75);
-                if (s.gender === '男') check('引体向上', 0, 45, true);
-            });
+            // 50米×8 往返跑
+            let run50x8Val = sc['50米x8往返跑'] || sc['50米×8往返跑'] || sc['往返跑'];
+            if (run50x8Val !== undefined && run50x8Val !== null && String(run50x8Val).trim() !== '') {
+                let sec = parseTime(run50x8Val);
+                if (sec < 75 || sec > 200) {
+                    addWarn('50米x8往返跑', run50x8Val, `成绩 "${run50x8Val}" 换算为 ${sec}秒，偏离常规标准`);
+                }
+            }
+
+            // 跳绳
+            let ropeVal = sc['一分钟跳绳'] || sc['跳绳'];
+            if (ropeVal !== undefined && ropeVal !== null && String(ropeVal).trim() !== '') {
+                let strRope = String(ropeVal).trim();
+                let numRope = parseFloat(strRope);
+                if (strRope.includes('.')) {
+                    addWarn('一分钟跳绳', strRope, `跳绳不能为小数 "${strRope}" 次`);
+                } else if (numRope > 350) {
+                    addWarn('一分钟跳绳', strRope, `录入了 "${numRope}" 次，数值明显过大`);
+                }
+            }
+
+            // 50米跑
+            if (sc['50米']) {
+                let num50 = parseFloat(sc['50米']);
+                if (num50 < 5.5 || num50 > 16) {
+                    addWarn('50米', sc['50米'], `50米成绩为 ${num50}秒，偏离合理范围`);
+                }
+            }
         });
+    });
 
-        localStorage.setItem('tc_standalone_students', JSON.stringify(students));
+    localStorage.setItem('tc_standalone_students', JSON.stringify(students));
 
-        if (warningLogs.length > 0) {
-            let sampleMsg = warningLogs.slice(0, 8).join('\n');
-            alert(`🔍 智能校验完毕！\n✅ 自动清理符号/单位: ${cleanedUnitsCount} 处\n⚠️ 发现 ${warningLogs.length} 项数值异常：\n\n${sampleMsg}${warningLogs.length > 8 ? '\n...' : ''}`);
-        } else {
-            alert(`🔍 智能校验完成！\n✅ 数据非常健康，未发现明显异常或 0 值。\n✨ 自动格式化清洗: ${cleanedUnitsCount} 处`);
-        }
+    // 如果数据全部健康，直接给出提示
+    if (warningItems.length === 0) {
+        let okMsg = '✅ 数据非常健康，未发现任何逻辑错误或越界数值！';
+        if (autoFixedDotsCount > 0) okMsg += `\n⚡ 已自动修复分秒漏点 (如 204 ➔ 2.04): ${autoFixedDotsCount} 处`;
+        if (cleanedUnitsCount > 0) okMsg += `\n✨ 已清理多余符号: ${cleanedUnitsCount} 处`;
+        alert(okMsg);
+        return;
     }
+
+    // 渲染可交互弹窗
+    const modal = document.getElementById('smartCheckModal');
+    const banner = document.getElementById('smartCheckSummaryBanner');
+    const container = document.getElementById('smartCheckErrorListContainer');
+
+    banner.innerHTML = `
+        <div><b>✅ 自动清洗与规范化:</b> 自动纠正漏点 <b>${autoFixedDotsCount}</b> 处，清洗杂质符号 <b>${cleanedUnitsCount}</b> 处。</div>
+        <div style="margin-top:4px;"><b>⚠️ 发现异常项:</b> 共 <b>${warningItems.length}</b> 处需要核对，点击右侧按钮直接跳到该学生填录处。</div>
+    `;
+
+    container.innerHTML = warningItems.map(item => `
+        <div style="background:#fff; border:1px solid #FFE0B2; border-left:4px solid #E65100; border-radius:8px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <div style="flex:1;">
+                <div style="font-size:14px; font-weight:bold; color:#212121;">
+                    <span>【${item.className}】</span>
+                    <span style="color:#0D47A1; cursor:pointer;" onclick="jumpToFixStudentScore('${item.className}', '${item.studentName}', '${item.project}')">${item.studentName}</span>
+                    <span style="font-size:11px; background:#FFF3E0; color:#E65100; padding:1px 6px; border-radius:4px; margin-left:4px;">${item.project}</span>
+                </div>
+                <div style="font-size:12px; color:#C62828; margin-top:3px;">
+                    ${item.message}
+                </div>
+            </div>
+            <button class="btn-orange" style="padding:6px 10px; font-size:12px; border-radius:8px; white-space:nowrap; margin:0;"
+                    onclick="jumpToFixStudentScore('${item.className}', '${item.studentName}', '${item.project}')">
+                👉 去修改
+            </button>
+        </div>
+    `).join('');
+
+    modal.style.display = 'flex';
+}
+
+// 2. 点击学生姓名或“去修改”按钮后的精准定位与跳转函数
+function jumpToFixStudentScore(className, studentName, projectKey) {
+    // 关闭校验弹窗
+    const checkModal = document.getElementById('smartCheckModal');
+    if (checkModal) checkModal.style.display = 'none';
+
+    // 1. 切换到【数据采集】视口
+    switchMainView('collect');
+
+    // 2. 选中对应班级并触发展开
+    const clsSelect = document.getElementById('tcClassSelect');
+    if (clsSelect) {
+        clsSelect.value = className;
+        renderTcProjectList();
+    }
+
+    // 3. 映射对应的项目按钮代号
+    let targetProjVal = projectKey;
+    if (projectKey === '身高' || projectKey === '体重') targetProjVal = 'BMI';
+    if (projectKey === '跳绳') targetProjVal = '一分钟跳绳';
+    if (projectKey.includes('往返跑') || projectKey.includes('50x8')) targetProjVal = '50米x8往返跑';
+
+    // 触发点击该测试项目
+    selectTcProjectChip(targetProjVal);
+
+    // 4. 定位并聚焦到具体这名学生的输入框
+    setTimeout(() => {
+        let inputEl = null;
+        if (projectKey === '身高') {
+            inputEl = document.querySelector(`.tc-batch-input[data-name="${studentName}"][data-sub="h"]`);
+        } else if (projectKey === '体重') {
+            inputEl = document.querySelector(`.tc-batch-input[data-name="${studentName}"][data-sub="w"]`);
+        } else {
+            inputEl = document.querySelector(`.tc-batch-input[data-name="${studentName}"]`);
+        }
+
+        if (inputEl) {
+            inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            inputEl.focus();
+            inputEl.select();
+
+            // 增加闪烁黄色背景高亮提示，直观显示要改哪一项
+            inputEl.style.transition = 'all 0.3s ease';
+            inputEl.style.backgroundColor = '#FFF9C4';
+            inputEl.style.border = '2px solid #E65100';
+            setTimeout(() => {
+                inputEl.style.backgroundColor = '';
+                inputEl.style.border = '1px solid #FFB74D';
+            }, 2500);
+
+            showToast(`🎯 已定位到【${studentName}】的${projectKey}成绩`);
+        }
+    }, 200);
+}
 
 let reportTitleClickCount = 0;
 let reportTitleClickTimer = null;
